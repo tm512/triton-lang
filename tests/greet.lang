@@ -1,0 +1,4 @@
+fn greet (who)
+  "Hello " .. who .. "!" ;
+
+print greet ("world")

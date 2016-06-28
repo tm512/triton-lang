@@ -1,0 +1,6 @@
+fn square (n) n * n ;
+fn even (n) n % 2 == 0 ;
+fn eqtest (a, b) a + b == b * (a == b) ;
+fn twothings ()
+  1 + 2
+  16 / 4 ;

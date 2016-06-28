@@ -1,0 +1,3 @@
+a = 4
+fn plus_a (n)
+  a + n ;

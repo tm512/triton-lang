@@ -1,0 +1,60 @@
+#!/bin/sh
+#set -x
+
+CC=${CC:-cc}
+LD=${LD:-cc}
+export PKG_CONFIG_PATH=${PKG_CONFIG_PATH:-$HOME/usr/lib/pkgconfig}
+
+if ! which pkg-config > /dev/null 2>&1 ; then
+	echo "pkg-config is required but not found"
+	exit 1
+fi
+
+gitver () {
+	[ -d .git ] &&
+		git log -n1 HEAD --date=short --pretty=%h-%ad | sed 's/\(....\)-\(..\)-\(..\)$/\1\2\3/'
+}
+
+CFLAGS=${CFLAGS:-"-std=c11 -pedantic -O0 -g3 -DGITVER=\"$(gitver)\""}
+LDFLAGS=${LDFLAGS:-""}
+OBJDIR=${OBJDIR:-obj}
+OUT=${OUT:-lang}
+
+if [ "$1" = "clean" ] ; then
+	printf "  RM\t%s\n" "$OUT $OBJDIR"
+	rm -rf $OUT $OBJDIR
+	exit 0
+fi
+
+mkdir -p $OBJDIR/src
+
+if [ "$PROFILE" = "1" ] ; then
+	CFLAGS="$CFLAGS -pg"
+	LDFLAGS="-pg $LDFLAGS"
+fi
+
+echo CFLAGS: $CFLAGS
+echo LDFLAGS: $LDFLAGS
+
+# commands to build a list of source/header files
+SOURCES="find src -type f -name "*.c""
+HEADERS="find src -type f -name "*.h""
+
+# if $OUT exists, then we only consider headers newer than it
+[ -e "$OUT" ] && HEADERS="$HEADERS -newer $OUT"
+HEADERS="$(eval "$HEADERS")"
+
+# if no headers have been changed, we only need to consider source files newer than $OUT
+[ -e "$OUT" ] && [ -z "$HEADERS" ] && SOURCES="$SOURCES -newer $OUT"
+SOURCES="$(eval "$SOURCES")"
+
+# now we loop through and compile all the source files that we need to
+for source in $SOURCES ; do
+	printf "  CC\t%s\n" "$(basename $source)"
+	$CC $CFLAGS -o $OBJDIR/${source%%c}o -c $source || exit 1
+done
+
+if [ "$SOURCES" ] ; then
+	printf "  LD\t%s\n" "$(basename $OUT)"
+	$LD $LDFLAGS -o $OUT $(find $OBJDIR/src -type f -name "*.o") || exit 1
+fi

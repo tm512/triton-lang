@@ -1,0 +1,13 @@
+fn seq (start, end)
+  start < end ?
+    start :: seq (start + 1, end)
+    end ;
+
+fn fib (n)
+  fn fib_rec (a, b, n)
+    n > 0 ?
+      a :: fib_rec (b, a + b, n - 1)
+      a ; (1, 2, n - 1) ;
+
+print seq (1, 10)
+print fib (10)
