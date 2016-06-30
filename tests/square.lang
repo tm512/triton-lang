@@ -1,4 +1,4 @@
 fn square (n)
   n * n ;
 
-square (100)
+print square (100)

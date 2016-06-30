@@ -106,7 +106,7 @@ void vm_print (Value *val)
 				vm_print (it->data.pair.a);
 				it = it->data.pair.b;
 				if (it)
-					printf (", ");
+					printf (" ");
 			}
 			printf ("]");
 			break;
@@ -157,9 +157,14 @@ Closure *vm_closure (VM *vm, Scope *sc)
 
 int vm_true (Value *v)
 {
+	if (!v)
+		return 0;
+
 	switch (v->type) {
 		case VAL_INT:
 			return !!v->data.i;
+		case VAL_PAIR:
+			return !!v->data.pair.a;
 		default: return 0;
 	}
 }
@@ -198,7 +203,7 @@ Value *vm_lcat (Value *a, Value *b)
 {
 	Value *it;
 
-	if (b->type != VAL_PAIR)
+	if (b && b->type != VAL_PAIR)
 		b = vm_value (VAL_PAIR, ((union val_data) { .pair = { b, NULL }}));
 
 	if (a->type == VAL_PAIR) {
@@ -313,6 +318,16 @@ void vm_dispatch (VM *vm, Chunk *ch, Closure *cl)
 					//printf ("calling 0x%lx\n", (uint64_t)v1->data.cl);
 					vm_dispatch (vm, v1->data.cl->ch, v1->data.cl);
 				}
+				break;
+			case OP_HEAD:
+				pop (v1);
+				if (v1->type == VAL_PAIR)
+					vm_push (vm, v1->data.pair.a);
+				break;
+			case OP_TAIL:
+				pop (v1);
+				if (v1->type == VAL_PAIR)
+					vm_push (vm, v1->data.pair.b);
 				break;
 			case OP_PRNT:
 				pop (v1);

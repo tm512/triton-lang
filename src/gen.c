@@ -250,6 +250,23 @@ void gen_expr (Chunk *ch, Expr *ex)
 			gen_emitpos (ch, ch->pc, fskip); // we jump here after true
 			break;
 		}
+		case EXPR_ACCS: {
+			char *item;
+
+			gen_expr (ch, ex->data.accs.expr);
+			if (ex->data.accs.item->type == EXPR_IDENT) {
+				item = ex->data.accs.item->data.s;
+				if (item[0] == 'h') {
+					gen_emit8 (ch, OP_HEAD);
+					printf ("HEAD\n");
+				}
+				else if (item[0] == 't') {
+					gen_emit8 (ch, OP_TAIL);
+					printf ("TAIL\n");
+				}
+			}
+			break;
+		}
 		case EXPR_PRNT:
 			gen_expr (ch, ex->data.print);
 			gen_emit8 (ch, OP_PRNT);

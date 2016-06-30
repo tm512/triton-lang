@@ -71,6 +71,19 @@ Expr *parser_factor (Token **tok)
 	else
 		return NULL;
 
+	// list access
+	while (accept (TOK_COL)) {
+		new = malloc (sizeof (*new));
+		if (!new)
+			return NULL;
+
+		new->type = EXPR_ACCS;
+		new->data.accs.expr = ret;
+		new->data.accs.item = parser_factor (tok);
+
+		ret = new;
+	}
+
 	// function calls
 	while (accept (TOK_LPAR)) {
 		new = malloc (sizeof (*new));

@@ -31,6 +31,8 @@
 #define OP_JZ	0x22
 #define OP_CALL	0x23
 #define OP_RET	0x24
+#define OP_HEAD	0x30 // list instructions
+#define OP_TAIL	0x31
 #define OP_PRNT	0xfe // print top of stack, for debugging
 #define OP_END	0xff
 

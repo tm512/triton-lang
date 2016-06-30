@@ -33,6 +33,7 @@ static Builtin builtins[] = {
 	{ "*", TOK_MUL },
 	{ "/", TOK_DIV },
 	{ "%", TOK_MOD },
+	{ ":", TOK_COL },
 	{ ";", TOK_SCOL },
 	{ "?", TOK_QMRK },
 	{ NULL, TOK_ZERO }
@@ -215,14 +216,18 @@ Token *lexer_tokenize_file (FILE *f)
 	char line[4096];
 	Token *ret, *last, *tmp;
 
+	ret = last = tmp = NULL;
+
 	// tokenize first line of file
-	fgets (line, 4096, f);
-	ret = lexer_tokenize (line, &last);
+	while (!last) {
+		fgets (line, 4096, f);
+		ret = lexer_tokenize (line, &last);
+	}
 
 	// keep tokenizing lines, appending to the last token from the last invokation
 	while (fgets (line, 4096, f)) {
 		last->next = lexer_tokenize (line, &tmp);
-		last = tmp;
+		last = tmp ? tmp : last;
 	}
 
 	return ret;

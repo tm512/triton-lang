@@ -6,7 +6,7 @@
 typedef enum ExprType {
 	EXPR_INT, EXPR_FLOAT, EXPR_STRING, EXPR_IDENT,
 	EXPR_ASSN, EXPR_FN, EXPR_UOP, EXPR_BOP,
-	EXPR_CALL, EXPR_IF, EXPR_PRNT
+	EXPR_CALL, EXPR_IF, EXPR_ACCS, EXPR_PRNT
 } ExprType;
 
 struct ExprList;
@@ -41,6 +41,9 @@ typedef struct Expr {
 		struct expr_data_ifs {
 			struct Expr *cond, *t, *f;
 		} ifs;
+		struct expr_data_accs {
+			struct Expr *expr, *item;
+		} accs;
 	} data;
 	struct Expr *next;
 } Expr;

@@ -18,7 +18,7 @@ gitver () {
 CFLAGS=${CFLAGS:-"-std=c11 -pedantic -O0 -g3 -DGITVER=\"$(gitver)\""}
 LDFLAGS=${LDFLAGS:-""}
 OBJDIR=${OBJDIR:-obj}
-OUT=${OUT:-lang}
+OUT=${OUT:-triton}
 
 if [ "$1" = "clean" ] ; then
 	printf "  RM\t%s\n" "$OUT $OBJDIR"

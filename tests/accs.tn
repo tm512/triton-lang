@@ -1,0 +1,5 @@
+a = 1 :: 2 :: 3 :: 4
+
+fn iter (lst)
+  print lst:h
+  iter (lst:t) ; (a)
