@@ -73,6 +73,7 @@ void gen_emitpos (Chunk *ch, uint32_t n, uint32_t pos)
 	ch->code[pos++] = (n & 0xff000000) >> 24;
 }
 
+#define printf(...) (0) // silence
 void gen_ident (Chunk *ch, const char *name)
 {
 	uint32_t id = gen_id_num (ch, name, 0);
