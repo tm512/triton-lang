@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "error.h"
 #include "parser.h"
 #include "lexer.h"
 #include "gen.h"
@@ -186,7 +187,7 @@ Token *lexer_token (char **src)
 	if ((isalpha (*c) || *c == '_') && !lexer_identifier (src, ret))
 		return ret;
 
-	fprintf (stderr, "error: unrecognized token at: %s\n", c);
+	error ("unrecognized token at: %s\n", c);
 
 	free (ret);
 	return NULL;
@@ -233,15 +234,33 @@ Token *lexer_tokenize_file (FILE *f)
 	return ret;
 }
 
+void lexer_free_tokens (Token *tok)
+{
+	Token *it, *next = tok;
+	while ((it = next)) {
+		next = it->next;
+		if (it->type == TOK_STRING)
+			free ((void*)it->data.s);
+		free (it);
+	}
+}
+
 int main (int argc, char **argv)
 {
-	Token *tok;
+	Token *tok, *bak;
 	Expr *ast;
 	Chunk *code;
 	VM vm = { 0 };
 
-	tok = lexer_tokenize_file (argv[1] ? fopen (argv[1], "r") : stdin);
+	tok = bak = lexer_tokenize_file (argv[1] ? fopen (argv[1], "r") : stdin);
 	ast = parser_body (&tok);
+
+	if (!ast) {
+		lexer_free_tokens (bak);
+		error ("parsing failed\n");
+		return 1;
+	}
+
 	code = gen_compile (ast, NULL, NULL, 0);
 	vm_dispatch (&vm, code, NULL);
 	return 0;

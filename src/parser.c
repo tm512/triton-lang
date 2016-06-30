@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "error.h"
 #include "parser.h"
 #include "lexer.h"
 
@@ -14,10 +15,82 @@ static int parser_peek (Token **tok, TokenType type, int eat)
 	return 0;
 }
 
-// wrapper for the above
+static inline Expr *expralloc ()
+{
+	Expr *ret = malloc (sizeof (*ret));
+
+	if (!ret) {
+		error ("malloc failure\n");
+		return NULL;
+	}
+
+	ret->type = EXPR_NIL;
+	ret->next = NULL;
+
+	return ret;
+}
+
+// recursively free an invalid syntax tree
+static inline void exprfree (Expr *expr)
+{
+	if (!expr)
+		return;
+
+	switch (expr->type) {
+		case EXPR_ASSN:
+			exprfree (expr->data.assn.expr);
+			break;
+		case EXPR_FN:
+			exprfree (expr->data.fn.expr);
+			free (expr->data.fn.args);
+			break;
+		case EXPR_UOP:
+			exprfree (expr->data.uop.expr);
+			break;
+		case EXPR_BOP:
+			exprfree (expr->data.bop.left);
+			exprfree (expr->data.bop.right);
+			break;
+		case EXPR_CALL:
+			exprfree (expr->data.call.fn);
+			exprfree (expr->data.call.args);
+			break;
+		case EXPR_IF:
+			exprfree (expr->data.ifs.cond);
+			exprfree (expr->data.ifs.t);
+			exprfree (expr->data.ifs.f);
+			break;
+		case EXPR_ACCS:
+			exprfree (expr->data.accs.expr);
+			exprfree (expr->data.accs.item);
+			break;
+		default: break;
+	}
+
+	exprfree (expr->next);
+	free (expr);
+}
+
+// wrappers for parser_peek
 #define accept(TYPE) parser_peek (tok, TYPE, 1)
 #define peek(TYPE) parser_peek (tok, TYPE, 0)
 #define peeknext(TYPE) parser_peek (&((*tok)->next), TYPE, 0)
+
+int parser_bop_check (Expr *expr)
+{
+	if (!expr)
+		return 0;
+
+	if (expr->type != EXPR_BOP)
+		return 1;
+
+	if (parser_bop_check (expr->data.bop.left) && parser_bop_check (expr->data.bop.right))
+		return 1;
+	else {
+		exprfree (expr);
+		return 0;
+	}
+}
 
 Expr *parser_fn (Token**);
 Expr *parser_if (Token **tok);
@@ -28,26 +101,37 @@ Expr *parser_factor (Token **tok)
 	Token *prev = *tok;
 	Expr *ret, *new, *tmp;
 
+	ret = new = NULL;
+
 	if (accept (TOK_SUB))
 		return parser_negate (tok);
-
-	ret = malloc (sizeof (*ret));
-	if (!ret)
-		return NULL;
 
 	if (accept (TOK_LPAR)) {
 		ret = parser_if (tok);
 
-		if (!accept (TOK_RPAR)) // missing )
-			return NULL;
+		if (!accept (TOK_RPAR)) {
+			error ("expected ')'\n");
+			goto cleanup;
+		}
 	}
-	else if (accept (TOK_FN))
+	else if (accept (TOK_FN)) {
 		ret = parser_fn (tok);
-	else if (accept (TOK_IDENT)) {
+		if (!ret) {
+			error ("expected function definition\n");
+			return NULL;
+		}
+	}
+	else if (ret = expralloc (), accept (TOK_IDENT)) { // this keeps things concise, so whatever
 		if (accept (TOK_ASSN)) {
 			ret->type = EXPR_ASSN;
 			ret->data.assn.name = prev->data.s;
 			ret->data.assn.expr = parser_if (tok);
+
+			if (!ret->data.assn.expr) {
+				error ("expected expression after assignment operator\n");
+				goto cleanup;
+			}
+
 			if (ret->data.assn.expr->type == EXPR_FN) // aaaaaa
 				ret->data.assn.expr->data.fn.name = prev->data.s;
 		}
@@ -68,33 +152,47 @@ Expr *parser_factor (Token **tok)
 		ret->type = EXPR_STRING;
 		ret->data.s = prev->data.s;
 	}
-	else
-		return NULL;
+	else if (accept (TOK_NIL)) {
+		ret->type = EXPR_NIL;
+		ret->data.nil = NULL;
+	}
+	else {
+		error ("expected factor in expression\n");
+		goto cleanup;
+	}
 
 	// list access
 	while (accept (TOK_COL)) {
-		new = malloc (sizeof (*new));
-		if (!new)
-			return NULL;
+		new = expralloc ();
 
 		new->type = EXPR_ACCS;
 		new->data.accs.expr = ret;
 		new->data.accs.item = parser_factor (tok);
+
+		if (!new->data.accs.item) {
+			error ("expected identifier after accessor\n");
+			goto cleanup;
+		}
 
 		ret = new;
 	}
 
 	// function calls
 	while (accept (TOK_LPAR)) {
-		new = malloc (sizeof (*new));
-		if (!new)
-			return NULL;
+		new = expralloc ();
 
 		new->type = EXPR_CALL;
 		new->data.call.fn = ret;
 		new->data.call.args = NULL;
+
 		while (!accept (TOK_RPAR)) { // build argument list
 			tmp = parser_if (tok);
+
+			if (!tmp) {
+				error ("expected expression in argument list\n");
+				goto cleanup;
+			}
+
 			tmp->next = new->data.call.args;
 			new->data.call.args = tmp;
 			accept (TOK_COMM);
@@ -104,20 +202,21 @@ Expr *parser_factor (Token **tok)
 	}
 
 	return ret;
+
+cleanup:
+	exprfree (new ? new : ret);
+	return NULL;
 }
 
 Expr *parser_negate (Token **tok)
 {
-	Expr *ret = malloc (sizeof (*ret));
-
-	if (!ret)
-		return NULL;
+	Expr *ret = expralloc ();
 
 	ret->type = EXPR_UOP;
 	ret->data.uop.expr = parser_factor (tok);
 	ret->data.uop.op = TOK_SUB;
 
-	return ret;
+	return ret->data.uop.expr ? ret : NULL;
 }
 
 Expr *parser_term (Token **tok)
@@ -129,9 +228,7 @@ Expr *parser_term (Token **tok)
 	ret = parser_factor (tok);
 
 	while ((op = *tok) && (accept (TOK_MUL) || accept (TOK_DIV) || accept (TOK_MOD))) {
-		new = malloc (sizeof (*new));
-		if (!new)
-			return NULL;
+		new = expralloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
@@ -141,7 +238,7 @@ Expr *parser_term (Token **tok)
 		ret = new;
 	}
 
-	return ret;
+	return parser_bop_check (ret) ? ret : NULL;
 }
 
 Expr *parser_expr (Token **tok)
@@ -153,9 +250,7 @@ Expr *parser_expr (Token **tok)
 	ret = parser_term (tok);
 
 	while ((op = *tok) && (accept (TOK_ADD) || accept (TOK_SUB))) {
-		new = malloc (sizeof (*new));
-		if (!new)
-			return NULL;
+		new = expralloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
@@ -165,7 +260,7 @@ Expr *parser_expr (Token **tok)
 		ret = new;
 	}
 
-	return ret;
+	return parser_bop_check (ret) ? ret : NULL;
 }
 
 Expr *parser_cat (Token **tok)
@@ -178,9 +273,7 @@ Expr *parser_cat (Token **tok)
 
 	op = *tok;
 	if (accept (TOK_CAT) || accept (TOK_LCAT)) {
-		new = malloc (sizeof (*new));
-		if (!new)
-			return NULL;
+		new = expralloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
@@ -190,7 +283,7 @@ Expr *parser_cat (Token **tok)
 		ret = new;
 	}
 
-	return ret;
+	return parser_bop_check (ret) ? ret : NULL;
 }
 
 Expr *parser_cmp (Token **tok)
@@ -203,9 +296,7 @@ Expr *parser_cmp (Token **tok)
 
 	while ((op = *tok) && (accept (TOK_EQ) || accept (TOK_NEQ) || accept (TOK_LT)
 	                    || accept (TOK_LTE) || accept (TOK_GT) || accept (TOK_GTE))) {
-		new = malloc (sizeof (*new));
-		if (!new)
-			return NULL;
+		new = expralloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
@@ -215,7 +306,7 @@ Expr *parser_cmp (Token **tok)
 		ret = new;
 	}
 
-	return ret;
+	return parser_bop_check (ret) ? ret : NULL;
 }
 
 Expr *parser_bool (Token **tok)
@@ -227,9 +318,7 @@ Expr *parser_bool (Token **tok)
 	ret = parser_cmp (tok);
 
 	while ((op = *tok) && (accept (TOK_ANDL) || accept (TOK_ORL))) {
-		new = malloc (sizeof (*new));
-		if (!new)
-			return NULL;
+		new = expralloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
@@ -239,27 +328,7 @@ Expr *parser_bool (Token **tok)
 		ret = new;
 	}
 
-	return ret;
-}
-
-void print_expr (Expr *ex)
-{
-	printf ("( ");
-	switch (ex->type) {
-		case EXPR_BOP:
-			print_expr (ex->data.bop.left);
-			printf ("op:%i ", ex->data.bop.op);
-			print_expr (ex->data.bop.right);
-			break;
-		case EXPR_IDENT:
-			printf ("id:%s ", ex->data.id);
-			break;
-		case EXPR_INT:
-			printf ("%i ", ex->data.i);
-			break;
-		default: break;
-	}
-	printf (") ");
+	return parser_bop_check (ret) ? ret : NULL;
 }
 
 Expr *parser_body (Token**);
@@ -268,10 +337,7 @@ Expr *parser_fn (Token **tok)
 	// fn = [name] (args) top ;
 	struct expr_data_fn *fn;
 	Token *prev;
-	Expr *ret = malloc (sizeof (*ret));
-
-	if (!ret)
-		return NULL;
+	Expr *ret = expralloc ();
 
 	prev = *tok;
 
@@ -280,6 +346,10 @@ Expr *parser_fn (Token **tok)
 		ret->type = EXPR_ASSN;
 		ret->data.assn.name = prev->data.s;
 		ret->data.assn.expr = parser_fn (tok);
+		if (!ret->data.assn.expr) {
+			exprfree (ret);
+			return NULL;
+		}
 		ret->data.assn.expr->data.fn.name = prev->data.s;
 		return ret;
 	}
@@ -287,8 +357,11 @@ Expr *parser_fn (Token **tok)
 	ret->type = EXPR_FN;
 	fn = &ret->data.fn;
 
-	if (!accept (TOK_LPAR))
-		return NULL; // no argument list
+	if (!accept (TOK_LPAR)) {
+		error ("expected argument list\n");
+		exprfree (ret);
+		return NULL;
+	}
 
 	// check if the argument list actually specifies any variables
 	if (peek (TOK_IDENT))
@@ -307,7 +380,19 @@ Expr *parser_fn (Token **tok)
 		prev = *tok;
 	}
 
+	if (!prev || prev->type != TOK_RPAR) {
+		error ("unexpected end to argument list\n");
+		exprfree (ret);
+		return NULL;
+	}
+
 	fn->expr = parser_body (tok);
+
+	if (!fn->expr) {
+		error ("expected function body\n");
+		exprfree (ret);
+		return NULL;
+	}
 
 	if (0)
 	{
@@ -338,15 +423,21 @@ Expr *parser_if (Token **tok)
 
 	ret = parser_bool (tok);
 
+	if (!ret)
+		return NULL;
+
 	if (accept (TOK_QMRK)) {
-		new = malloc (sizeof (*new));
-		if (!new)
-			return NULL;
+		new = expralloc ();
 
 		new->type = EXPR_IF;
 		new->data.ifs.cond = ret;
 		new->data.ifs.t = parser_if (tok);
 		new->data.ifs.f = parser_if (tok);
+
+		if (!new->data.ifs.t || !new->data.ifs.f) {
+			exprfree (new);
+			return NULL;
+		}
 
 		ret = new;
 	}
@@ -363,17 +454,21 @@ Expr *parser_body (Token **tok)
 	Expr *ret, *last, *new;
 
 	ret = last = NULL;
+
 	while (*tok && !accept (TOK_SCOL)) {
 		if (accept (TOK_PRNT)) {
-			new = malloc (sizeof (*new));
-			if (!new)
-				return NULL;
+			new = expralloc ();
 
 			new->type = EXPR_PRNT;
 			new->data.print = parser_if (tok);
 		}
 		else
 			new = parser_if (tok);
+
+		if (!new) {
+			exprfree (ret); // free what we have
+			return NULL;
+		}
 
 		if (last) {
 			last->next = new;

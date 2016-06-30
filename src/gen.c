@@ -126,6 +126,9 @@ void gen_expr (Chunk *ch, Expr *ex)
 	                              "LCAT" };
 
 	switch (ex->type) {
+		case EXPR_NIL:
+			gen_emit8 (ch, OP_NIL);
+			break;
 		case EXPR_INT:
 			gen_emit8 (ch, OP_PSHI);
 			gen_emit32 (ch, ex->data.i);
@@ -309,7 +312,6 @@ Chunk *gen_compile (Expr *ex, const char *name, const char **args, int argn)
 	}
 
 	gen_emit8 (ret, OP_RET);
-	printf ("RET\n");
 
 //	int i;
 //	for (i = 0; i < ret->pc; i++)

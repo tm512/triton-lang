@@ -26,6 +26,7 @@
 #define OP_POP	0x16
 #define OP_CLSR	0x17
 #define OP_SELF	0x18
+#define OP_NIL	0x19
 #define OP_JMP	0x20 // jump instructions
 #define OP_JNZ	0x21
 #define OP_JZ	0x22

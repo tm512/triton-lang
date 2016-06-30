@@ -6,7 +6,7 @@ fn seq (start, end)
 fn map (f, lst)
   lst ?
     f (lst:h) :: map (f, lst:t)
-    lst ;
+    nil ;
 
 fn square (n) n * n ;
 

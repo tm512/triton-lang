@@ -4,15 +4,17 @@
 #include "array.h"
 
 typedef enum ExprType {
-	EXPR_INT, EXPR_FLOAT, EXPR_STRING, EXPR_IDENT,
-	EXPR_ASSN, EXPR_FN, EXPR_UOP, EXPR_BOP,
-	EXPR_CALL, EXPR_IF, EXPR_ACCS, EXPR_PRNT
+	EXPR_NIL, EXPR_INT, EXPR_FLOAT, EXPR_STRING,
+	EXPR_IDENT, EXPR_ASSN, EXPR_FN, EXPR_UOP,
+	EXPR_BOP, EXPR_CALL, EXPR_IF, EXPR_ACCS,
+	EXPR_PRNT
 } ExprType;
 
 struct ExprList;
 typedef struct Expr {
 	ExprType type;
 	union {
+		void *nil;
 		int i;
 		double d;
 		const char *s;

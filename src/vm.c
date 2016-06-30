@@ -8,6 +8,8 @@
 #include "gen.h"
 #include "vm.h"
 
+Value nil = { VAL_NIL, ((union val_data) { 0 }) };
+
 Value *vm_value (enum val_type type, union val_data data)
 {
 	Value *ret = malloc (sizeof (*ret));
@@ -89,6 +91,9 @@ void vm_print (Value *val)
 {
 	Value *it;
 	switch (val->type) {
+		case VAL_NIL:
+			printf ("nil");
+			break;
 		case VAL_INT:
 			printf ("%i", val->data.i);
 			break;
@@ -102,10 +107,10 @@ void vm_print (Value *val)
 			it = val;
 
 			printf ("[");
-			while (it) {
+			while (it != &nil) {
 				vm_print (it->data.pair.a);
 				it = it->data.pair.b;
-				if (it)
+				if (it != &nil)
 					printf (" ");
 			}
 			printf ("]");
@@ -161,10 +166,9 @@ int vm_true (Value *v)
 		return 0;
 
 	switch (v->type) {
-		case VAL_INT:
-			return !!v->data.i;
-		case VAL_PAIR:
-			return !!v->data.pair.a;
+		case VAL_NIL: return 0;
+		case VAL_INT: return !!v->data.i;
+		case VAL_PAIR: return v->data.pair.a != &nil;
 		default: return 0;
 	}
 }
@@ -192,8 +196,8 @@ Value *vm_cat (Value *a, Value *b)
 
 Value *vm_list_copy (Value *lst)
 {
-	if (!lst)
-		return NULL;
+	if (lst == &nil)
+		return &nil;
 
 	return vm_value (VAL_PAIR, ((union val_data) { .pair = { lst->data.pair.a, vm_list_copy (lst->data.pair.b) }}));
 }
@@ -203,12 +207,12 @@ Value *vm_lcat (Value *a, Value *b)
 {
 	Value *it;
 
-	if (b && b->type != VAL_PAIR)
-		b = vm_value (VAL_PAIR, ((union val_data) { .pair = { b, NULL }}));
+	if (b != &nil && b->type != VAL_PAIR)
+		b = vm_value (VAL_PAIR, ((union val_data) { .pair = { b, &nil }}));
 
 	if (a->type == VAL_PAIR) {
 		a = it = vm_list_copy (a);
-		while (it->data.pair.b) // go to the end of this list
+		while (it->data.pair.b != &nil) // go to the end of this list
 			it = it->data.pair.b;
 		it->data.pair.b = b;
 
@@ -294,6 +298,9 @@ void vm_dispatch (VM *vm, Chunk *ch, Closure *cl)
 				break;
 			case OP_SELF:
 				vm_push (vm, vm_value (VAL_CLSR, ((union val_data) { .cl = cl })));
+				break;
+			case OP_NIL:
+				vm_push (vm, &nil);
 				break;
 			case OP_JMP:
 				sc.pc = vm_read32 (&sc);
