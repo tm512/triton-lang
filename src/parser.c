@@ -15,7 +15,7 @@ static int parser_peek (Token **tok, TokenType type, int eat)
 	return 0;
 }
 
-static inline Expr *expralloc ()
+static inline Expr *parser_alloc ()
 {
 	Expr *ret = malloc (sizeof (*ret));
 
@@ -31,43 +31,46 @@ static inline Expr *expralloc ()
 }
 
 // recursively free an invalid syntax tree
-static inline void exprfree (Expr *expr)
+void parser_free (Expr *expr)
 {
 	if (!expr)
 		return;
 
 	switch (expr->type) {
 		case EXPR_ASSN:
-			exprfree (expr->data.assn.expr);
+			parser_free (expr->data.assn.expr);
 			break;
 		case EXPR_FN:
-			exprfree (expr->data.fn.expr);
+			parser_free (expr->data.fn.expr);
 			free (expr->data.fn.args);
 			break;
 		case EXPR_UOP:
-			exprfree (expr->data.uop.expr);
+			parser_free (expr->data.uop.expr);
 			break;
 		case EXPR_BOP:
-			exprfree (expr->data.bop.left);
-			exprfree (expr->data.bop.right);
+			parser_free (expr->data.bop.left);
+			parser_free (expr->data.bop.right);
 			break;
 		case EXPR_CALL:
-			exprfree (expr->data.call.fn);
-			exprfree (expr->data.call.args);
+			parser_free (expr->data.call.fn);
+			parser_free (expr->data.call.args);
 			break;
 		case EXPR_IF:
-			exprfree (expr->data.ifs.cond);
-			exprfree (expr->data.ifs.t);
-			exprfree (expr->data.ifs.f);
+			parser_free (expr->data.ifs.cond);
+			parser_free (expr->data.ifs.t);
+			parser_free (expr->data.ifs.f);
 			break;
 		case EXPR_ACCS:
-			exprfree (expr->data.accs.expr);
-			exprfree (expr->data.accs.item);
+			parser_free (expr->data.accs.expr);
+			parser_free (expr->data.accs.item);
+			break;
+		case EXPR_PRNT:
+			parser_free (expr->data.print);
 			break;
 		default: break;
 	}
 
-	exprfree (expr->next);
+	parser_free (expr->next);
 	free (expr);
 }
 
@@ -87,7 +90,7 @@ int parser_bop_check (Expr *expr)
 	if (parser_bop_check (expr->data.bop.left) && parser_bop_check (expr->data.bop.right))
 		return 1;
 	else {
-		exprfree (expr);
+		parser_free (expr);
 		return 0;
 	}
 }
@@ -121,7 +124,7 @@ Expr *parser_factor (Token **tok)
 			return NULL;
 		}
 	}
-	else if (ret = expralloc (), accept (TOK_IDENT)) { // this keeps things concise, so whatever
+	else if (ret = parser_alloc (), accept (TOK_IDENT)) { // this keeps things concise, so whatever
 		if (accept (TOK_ASSN)) {
 			ret->type = EXPR_ASSN;
 			ret->data.assn.name = prev->data.s;
@@ -163,7 +166,7 @@ Expr *parser_factor (Token **tok)
 
 	// list access
 	while (accept (TOK_COL)) {
-		new = expralloc ();
+		new = parser_alloc ();
 
 		new->type = EXPR_ACCS;
 		new->data.accs.expr = ret;
@@ -179,7 +182,7 @@ Expr *parser_factor (Token **tok)
 
 	// function calls
 	while (accept (TOK_LPAR)) {
-		new = expralloc ();
+		new = parser_alloc ();
 
 		new->type = EXPR_CALL;
 		new->data.call.fn = ret;
@@ -204,13 +207,13 @@ Expr *parser_factor (Token **tok)
 	return ret;
 
 cleanup:
-	exprfree (new ? new : ret);
+	parser_free (new ? new : ret);
 	return NULL;
 }
 
 Expr *parser_negate (Token **tok)
 {
-	Expr *ret = expralloc ();
+	Expr *ret = parser_alloc ();
 
 	ret->type = EXPR_UOP;
 	ret->data.uop.expr = parser_factor (tok);
@@ -228,7 +231,7 @@ Expr *parser_term (Token **tok)
 	ret = parser_factor (tok);
 
 	while ((op = *tok) && (accept (TOK_MUL) || accept (TOK_DIV) || accept (TOK_MOD))) {
-		new = expralloc ();
+		new = parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
@@ -250,7 +253,7 @@ Expr *parser_expr (Token **tok)
 	ret = parser_term (tok);
 
 	while ((op = *tok) && (accept (TOK_ADD) || accept (TOK_SUB))) {
-		new = expralloc ();
+		new = parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
@@ -273,7 +276,7 @@ Expr *parser_cat (Token **tok)
 
 	op = *tok;
 	if (accept (TOK_CAT) || accept (TOK_LCAT)) {
-		new = expralloc ();
+		new = parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
@@ -296,7 +299,7 @@ Expr *parser_cmp (Token **tok)
 
 	while ((op = *tok) && (accept (TOK_EQ) || accept (TOK_NEQ) || accept (TOK_LT)
 	                    || accept (TOK_LTE) || accept (TOK_GT) || accept (TOK_GTE))) {
-		new = expralloc ();
+		new = parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
@@ -318,7 +321,7 @@ Expr *parser_bool (Token **tok)
 	ret = parser_cmp (tok);
 
 	while ((op = *tok) && (accept (TOK_ANDL) || accept (TOK_ORL))) {
-		new = expralloc ();
+		new = parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
@@ -337,7 +340,7 @@ Expr *parser_fn (Token **tok)
 	// fn = [name] (args) top ;
 	struct expr_data_fn *fn;
 	Token *prev;
-	Expr *ret = expralloc ();
+	Expr *ret = parser_alloc ();
 
 	prev = *tok;
 
@@ -347,7 +350,7 @@ Expr *parser_fn (Token **tok)
 		ret->data.assn.name = prev->data.s;
 		ret->data.assn.expr = parser_fn (tok);
 		if (!ret->data.assn.expr) {
-			exprfree (ret);
+			parser_free (ret);
 			return NULL;
 		}
 		ret->data.assn.expr->data.fn.name = prev->data.s;
@@ -359,7 +362,7 @@ Expr *parser_fn (Token **tok)
 
 	if (!accept (TOK_LPAR)) {
 		error ("expected argument list\n");
-		exprfree (ret);
+		parser_free (ret);
 		return NULL;
 	}
 
@@ -382,7 +385,7 @@ Expr *parser_fn (Token **tok)
 
 	if (!prev || prev->type != TOK_RPAR) {
 		error ("unexpected end to argument list\n");
-		exprfree (ret);
+		parser_free (ret);
 		return NULL;
 	}
 
@@ -390,7 +393,7 @@ Expr *parser_fn (Token **tok)
 
 	if (!fn->expr) {
 		error ("expected function body\n");
-		exprfree (ret);
+		parser_free (ret);
 		return NULL;
 	}
 
@@ -427,7 +430,7 @@ Expr *parser_if (Token **tok)
 		return NULL;
 
 	if (accept (TOK_QMRK)) {
-		new = expralloc ();
+		new = parser_alloc ();
 
 		new->type = EXPR_IF;
 		new->data.ifs.cond = ret;
@@ -435,7 +438,7 @@ Expr *parser_if (Token **tok)
 		new->data.ifs.f = parser_if (tok);
 
 		if (!new->data.ifs.t || !new->data.ifs.f) {
-			exprfree (new);
+			parser_free (new);
 			return NULL;
 		}
 
@@ -457,7 +460,7 @@ Expr *parser_body (Token **tok)
 
 	while (*tok && !accept (TOK_SCOL)) {
 		if (accept (TOK_PRNT)) {
-			new = expralloc ();
+			new = parser_alloc ();
 
 			new->type = EXPR_PRNT;
 			new->data.print = parser_if (tok);
@@ -466,7 +469,7 @@ Expr *parser_body (Token **tok)
 			new = parser_if (tok);
 
 		if (!new) {
-			exprfree (ret); // free what we have
+			parser_free (ret); // free what we have
 			return NULL;
 		}
 

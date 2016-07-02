@@ -1,4 +1,10 @@
+fn map (f, lst)
+  lst ?
+    f (lst:h) :: map (f, lst:t)
+    nil ;
+
 fn greet (who)
   "Hello " .. who .. "!" ;
 
-print greet ("world")
+list = "world" :: "everybody"
+print map (greet, list)

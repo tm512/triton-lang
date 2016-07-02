@@ -20,13 +20,15 @@ typedef struct Value {
 		} pair;
 		struct Closure *cl;
 	} data;
+
+	struct Value *next; // for GC
+	uint8_t marked;
 } Value;
 
 struct BSTNode;
 typedef struct Chunk {
 	uint8_t code[512];
 	uint32_t pc;
-	array_def (vars, Value*);
 	array_def (subch, struct Chunk*);
 
 	// compiler specific stuff, the VM doesn't do anything with this
@@ -45,13 +47,18 @@ typedef struct Scope {
 	uint32_t pc;
 	Chunk *ch;
 	array_def (vars, Value*);
+	struct Scope *next;
 } Scope;
 
+struct GC;
 typedef struct VM {
-	Value *stack[128];
-	unsigned int sp;
+	Value **stack;
+	unsigned int sp, st, ss;
+	Scope *sc;
+	struct GC *gc;
 } VM;
 
 void vm_dispatch (VM *vm, Chunk *ch, Closure *cl);
+VM *vm_init (uint32_t init_ss);
 
 #endif

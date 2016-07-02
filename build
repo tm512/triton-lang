@@ -15,7 +15,9 @@ gitver () {
 		git log -n1 HEAD --date=short --pretty=%h-%ad | sed 's/\(....\)-\(..\)-\(..\)$/\1\2\3/'
 }
 
-CFLAGS=${CFLAGS:-"-std=c11 -pedantic -O0 -g3 -DGITVER=\"$(gitver)\""}
+OPT=${OPT:-0}
+DBG=${DBG:-3}
+CFLAGS=${CFLAGS:-"-std=c11 -pedantic -O$OPT -g$DBG -DGITVER=\"$(gitver)\""}
 LDFLAGS=${LDFLAGS:-""}
 OBJDIR=${OBJDIR:-obj}
 OUT=${OUT:-triton}

@@ -245,12 +245,15 @@ void lexer_free_tokens (Token *tok)
 	}
 }
 
+#include <time.h>
+
 int main (int argc, char **argv)
 {
 	Token *tok, *bak;
 	Expr *ast;
 	Chunk *code;
-	VM vm = { 0 };
+	VM *vm = vm_init (1024);
+	struct timespec start, end;
 
 	tok = bak = lexer_tokenize_file (argv[1] ? fopen (argv[1], "r") : stdin);
 	ast = parser_body (&tok);
@@ -262,6 +265,10 @@ int main (int argc, char **argv)
 	}
 
 	code = gen_compile (ast, NULL, NULL, 0);
-	vm_dispatch (&vm, code, NULL);
+	parser_free (ast);
+//	clock_gettime (CLOCK_MONOTONIC, &start);
+	vm_dispatch (vm, code, NULL);
+//	clock_gettime (CLOCK_MONOTONIC, &end);
+//	printf ("completed execution in %lis %lins\n", end.tv_sec - start.tv_sec, end.tv_nsec - start.tv_nsec);
 	return 0;
 }

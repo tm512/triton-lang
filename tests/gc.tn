@@ -1,0 +1,7 @@
+fn seq (start, end)
+  start < end ?
+    start :: seq (start + 1, end)
+    end ;
+
+a = seq (1, 100)
+print a

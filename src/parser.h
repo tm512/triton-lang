@@ -52,5 +52,6 @@ typedef struct Expr {
 
 struct Token;
 Expr *parser_body (struct Token**);
+void parser_free (Expr *expr);
 
 #endif
