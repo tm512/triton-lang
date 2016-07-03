@@ -5,7 +5,7 @@
 #include "parser.h"
 #include "lexer.h"
 
-static int parser_peek (Token **tok, TokenType type, int eat)
+static int tn_parser_peek (struct tn_token **tok, enum tn_token_type type, int eat)
 {
 	if (*tok && (*tok)->type == type) {
 		if (eat) *tok = (*tok)->next;
@@ -15,9 +15,9 @@ static int parser_peek (Token **tok, TokenType type, int eat)
 	return 0;
 }
 
-static inline Expr *parser_alloc ()
+static inline struct tn_expr *tn_parser_alloc ()
 {
-	Expr *ret = malloc (sizeof (*ret));
+	struct tn_expr *ret = malloc (sizeof (*ret));
 
 	if (!ret) {
 		error ("malloc failure\n");
@@ -31,55 +31,55 @@ static inline Expr *parser_alloc ()
 }
 
 // recursively free an invalid syntax tree
-void parser_free (Expr *expr)
+void tn_parser_free (struct tn_expr *expr)
 {
 	if (!expr)
 		return;
 
 	switch (expr->type) {
 		case EXPR_ASSN:
-			parser_free (expr->data.assn.expr);
+			tn_parser_free (expr->data.assn.expr);
 			break;
 		case EXPR_FN:
-			parser_free (expr->data.fn.expr);
+			tn_parser_free (expr->data.fn.expr);
 			free (expr->data.fn.args);
 			break;
 		case EXPR_UOP:
-			parser_free (expr->data.uop.expr);
+			tn_parser_free (expr->data.uop.expr);
 			break;
 		case EXPR_BOP:
-			parser_free (expr->data.bop.left);
-			parser_free (expr->data.bop.right);
+			tn_parser_free (expr->data.bop.left);
+			tn_parser_free (expr->data.bop.right);
 			break;
 		case EXPR_CALL:
-			parser_free (expr->data.call.fn);
-			parser_free (expr->data.call.args);
+			tn_parser_free (expr->data.call.fn);
+			tn_parser_free (expr->data.call.args);
 			break;
 		case EXPR_IF:
-			parser_free (expr->data.ifs.cond);
-			parser_free (expr->data.ifs.t);
-			parser_free (expr->data.ifs.f);
+			tn_parser_free (expr->data.ifs.cond);
+			tn_parser_free (expr->data.ifs.t);
+			tn_parser_free (expr->data.ifs.f);
 			break;
 		case EXPR_ACCS:
-			parser_free (expr->data.accs.expr);
-			parser_free (expr->data.accs.item);
+			tn_parser_free (expr->data.accs.expr);
+			tn_parser_free (expr->data.accs.item);
 			break;
 		case EXPR_PRNT:
-			parser_free (expr->data.print);
+			tn_parser_free (expr->data.print);
 			break;
 		default: break;
 	}
 
-	parser_free (expr->next);
+	tn_parser_free (expr->next);
 	free (expr);
 }
 
-// wrappers for parser_peek
-#define accept(TYPE) parser_peek (tok, TYPE, 1)
-#define peek(TYPE) parser_peek (tok, TYPE, 0)
-#define peeknext(TYPE) parser_peek (&((*tok)->next), TYPE, 0)
+// wrappers for tn_parser_peek
+#define accept(TYPE) tn_parser_peek (tok, TYPE, 1)
+#define peek(TYPE) tn_parser_peek (tok, TYPE, 0)
+#define peeknext(TYPE) tn_parser_peek (&((*tok)->next), TYPE, 0)
 
-int parser_bop_check (Expr *expr)
+int tn_parser_bop_check (struct tn_expr *expr)
 {
 	if (!expr)
 		return 0;
@@ -87,30 +87,30 @@ int parser_bop_check (Expr *expr)
 	if (expr->type != EXPR_BOP)
 		return 1;
 
-	if (parser_bop_check (expr->data.bop.left) && parser_bop_check (expr->data.bop.right))
+	if (tn_parser_bop_check (expr->data.bop.left) && tn_parser_bop_check (expr->data.bop.right))
 		return 1;
 	else {
-		parser_free (expr);
+		tn_parser_free (expr);
 		return 0;
 	}
 }
 
-Expr *parser_fn (Token**);
-Expr *parser_if (Token **tok);
-Expr *parser_negate (Token**);
-Expr *parser_factor (Token **tok)
+struct tn_expr *tn_parser_fn (struct tn_token**);
+struct tn_expr *tn_parser_if (struct tn_token **);
+struct tn_expr *tn_parser_negate (struct tn_token**);
+struct tn_expr *tn_parser_factor (struct tn_token **tok)
 {
 	// factor = (expr) | negate | ident [([args])] | int | float
-	Token *prev = *tok;
-	Expr *ret, *new, *tmp;
+	struct tn_token *prev = *tok;
+	struct tn_expr *ret, *new, *tmp;
 
 	ret = new = NULL;
 
 	if (accept (TOK_SUB))
-		return parser_negate (tok);
+		return tn_parser_negate (tok);
 
 	if (accept (TOK_LPAR)) {
-		ret = parser_if (tok);
+		ret = tn_parser_if (tok);
 
 		if (!accept (TOK_RPAR)) {
 			error ("expected ')'\n");
@@ -118,17 +118,17 @@ Expr *parser_factor (Token **tok)
 		}
 	}
 	else if (accept (TOK_FN)) {
-		ret = parser_fn (tok);
+		ret = tn_parser_fn (tok);
 		if (!ret) {
 			error ("expected function definition\n");
 			return NULL;
 		}
 	}
-	else if (ret = parser_alloc (), accept (TOK_IDENT)) { // this keeps things concise, so whatever
+	else if (ret = tn_parser_alloc (), accept (TOK_IDENT)) { // this keeps things concise, so whatever
 		if (accept (TOK_ASSN)) {
 			ret->type = EXPR_ASSN;
 			ret->data.assn.name = prev->data.s;
-			ret->data.assn.expr = parser_if (tok);
+			ret->data.assn.expr = tn_parser_if (tok);
 
 			if (!ret->data.assn.expr) {
 				error ("expected expression after assignment operator\n");
@@ -166,11 +166,11 @@ Expr *parser_factor (Token **tok)
 
 	// list access
 	while (accept (TOK_COL)) {
-		new = parser_alloc ();
+		new = tn_parser_alloc ();
 
 		new->type = EXPR_ACCS;
 		new->data.accs.expr = ret;
-		new->data.accs.item = parser_factor (tok);
+		new->data.accs.item = tn_parser_factor (tok);
 
 		if (!new->data.accs.item) {
 			error ("expected identifier after accessor\n");
@@ -182,14 +182,14 @@ Expr *parser_factor (Token **tok)
 
 	// function calls
 	while (accept (TOK_LPAR)) {
-		new = parser_alloc ();
+		new = tn_parser_alloc ();
 
 		new->type = EXPR_CALL;
 		new->data.call.fn = ret;
 		new->data.call.args = NULL;
 
 		while (!accept (TOK_RPAR)) { // build argument list
-			tmp = parser_if (tok);
+			tmp = tn_parser_if (tok);
 
 			if (!tmp) {
 				error ("expected expression in argument list\n");
@@ -207,140 +207,140 @@ Expr *parser_factor (Token **tok)
 	return ret;
 
 cleanup:
-	parser_free (new ? new : ret);
+	tn_parser_free (new ? new : ret);
 	return NULL;
 }
 
-Expr *parser_negate (Token **tok)
+struct tn_expr *tn_parser_negate (struct tn_token **tok)
 {
-	Expr *ret = parser_alloc ();
+	struct tn_expr *ret = tn_parser_alloc ();
 
 	ret->type = EXPR_UOP;
-	ret->data.uop.expr = parser_factor (tok);
+	ret->data.uop.expr = tn_parser_factor (tok);
 	ret->data.uop.op = TOK_SUB;
 
 	return ret->data.uop.expr ? ret : NULL;
 }
 
-Expr *parser_term (Token **tok)
+struct tn_expr *tn_parser_term (struct tn_token **tok)
 {
 	// term = factor [*|/|% term]
-	Token *op;
-	Expr *new, *ret;
+	struct tn_token *op;
+	struct tn_expr *new, *ret;
 
-	ret = parser_factor (tok);
+	ret = tn_parser_factor (tok);
 
 	while ((op = *tok) && (accept (TOK_MUL) || accept (TOK_DIV) || accept (TOK_MOD))) {
-		new = parser_alloc ();
+		new = tn_parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
-		new->data.bop.right = parser_factor (tok);
+		new->data.bop.right = tn_parser_factor (tok);
 		new->data.bop.op = op->type;
 
 		ret = new;
 	}
 
-	return parser_bop_check (ret) ? ret : NULL;
+	return tn_parser_bop_check (ret) ? ret : NULL;
 }
 
-Expr *parser_expr (Token **tok)
+struct tn_expr *tn_parser_expr (struct tn_token **tok)
 {
 	// expr = term [+|- expr]
-	Token *op;
-	Expr *new, *ret;
+	struct tn_token *op;
+	struct tn_expr *new, *ret;
 
-	ret = parser_term (tok);
+	ret = tn_parser_term (tok);
 
 	while ((op = *tok) && (accept (TOK_ADD) || accept (TOK_SUB))) {
-		new = parser_alloc ();
+		new = tn_parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
-		new->data.bop.right = parser_term (tok);
+		new->data.bop.right = tn_parser_term (tok);
 		new->data.bop.op = op->type;
 
 		ret = new;
 	}
 
-	return parser_bop_check (ret) ? ret : NULL;
+	return tn_parser_bop_check (ret) ? ret : NULL;
 }
 
-Expr *parser_cat (Token **tok)
+struct tn_expr *tn_parser_cat (struct tn_token **tok)
 {
 	// eq = expr [==|!= eq]
-	Token *op;
-	Expr *new, *ret;
+	struct tn_token *op;
+	struct tn_expr *new, *ret;
 
-	ret = parser_expr (tok);
+	ret = tn_parser_expr (tok);
 
 	op = *tok;
 	if (accept (TOK_CAT) || accept (TOK_LCAT)) {
-		new = parser_alloc ();
+		new = tn_parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
-		new->data.bop.right = parser_cat (tok);
+		new->data.bop.right = tn_parser_cat (tok);
 		new->data.bop.op = op->type;
 
 		ret = new;
 	}
 
-	return parser_bop_check (ret) ? ret : NULL;
+	return tn_parser_bop_check (ret) ? ret : NULL;
 }
 
-Expr *parser_cmp (Token **tok)
+struct tn_expr *tn_parser_cmp (struct tn_token **tok)
 {
 	// eq = expr [==|!= eq]
-	Token *op;
-	Expr *new, *ret;
+	struct tn_token *op;
+	struct tn_expr *new, *ret;
 
-	ret = parser_cat (tok);
+	ret = tn_parser_cat (tok);
 
 	while ((op = *tok) && (accept (TOK_EQ) || accept (TOK_NEQ) || accept (TOK_LT)
 	                    || accept (TOK_LTE) || accept (TOK_GT) || accept (TOK_GTE))) {
-		new = parser_alloc ();
+		new = tn_parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
-		new->data.bop.right = parser_cat (tok);
+		new->data.bop.right = tn_parser_cat (tok);
 		new->data.bop.op = op->type;
 
 		ret = new;
 	}
 
-	return parser_bop_check (ret) ? ret : NULL;
+	return tn_parser_bop_check (ret) ? ret : NULL;
 }
 
-Expr *parser_bool (Token **tok)
+struct tn_expr *tn_parser_bool (struct tn_token **tok)
 {
 	// eq = expr [==|!= eq]
-	Token *op;
-	Expr *new, *ret;
+	struct tn_token *op;
+	struct tn_expr *new, *ret;
 
-	ret = parser_cmp (tok);
+	ret = tn_parser_cmp (tok);
 
 	while ((op = *tok) && (accept (TOK_ANDL) || accept (TOK_ORL))) {
-		new = parser_alloc ();
+		new = tn_parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
-		new->data.bop.right = parser_cmp (tok);
+		new->data.bop.right = tn_parser_cmp (tok);
 		new->data.bop.op = op->type;
 
 		ret = new;
 	}
 
-	return parser_bop_check (ret) ? ret : NULL;
+	return tn_parser_bop_check (ret) ? ret : NULL;
 }
 
-Expr *parser_body (Token**);
-Expr *parser_fn (Token **tok)
+struct tn_expr *tn_parser_body (struct tn_token**);
+struct tn_expr *tn_parser_fn (struct tn_token **tok)
 {
 	// fn = [name] (args) top ;
-	struct expr_data_fn *fn;
-	Token *prev;
-	Expr *ret = parser_alloc ();
+	struct tn_expr_data_fn *fn;
+	struct tn_token *prev;
+	struct tn_expr *ret = tn_parser_alloc ();
 
 	prev = *tok;
 
@@ -348,9 +348,9 @@ Expr *parser_fn (Token **tok)
 	if (accept (TOK_IDENT)) {
 		ret->type = EXPR_ASSN;
 		ret->data.assn.name = prev->data.s;
-		ret->data.assn.expr = parser_fn (tok);
+		ret->data.assn.expr = tn_parser_fn (tok);
 		if (!ret->data.assn.expr) {
-			parser_free (ret);
+			tn_parser_free (ret);
 			return NULL;
 		}
 		ret->data.assn.expr->data.fn.name = prev->data.s;
@@ -362,7 +362,7 @@ Expr *parser_fn (Token **tok)
 
 	if (!accept (TOK_LPAR)) {
 		error ("expected argument list\n");
-		parser_free (ret);
+		tn_parser_free (ret);
 		return NULL;
 	}
 
@@ -385,60 +385,40 @@ Expr *parser_fn (Token **tok)
 
 	if (!prev || prev->type != TOK_RPAR) {
 		error ("unexpected end to argument list\n");
-		parser_free (ret);
+		tn_parser_free (ret);
 		return NULL;
 	}
 
-	fn->expr = parser_body (tok);
+	fn->expr = tn_parser_body (tok);
 
 	if (!fn->expr) {
 		error ("expected function body\n");
-		parser_free (ret);
+		tn_parser_free (ret);
 		return NULL;
-	}
-
-	if (0)
-	{
-		int i;
-		Expr *it = fn->expr;
-
-		printf ("name: %s\nargs: ", fn->name);
-		for (i = 0; i < fn->args_num; i++)
-			printf ("%s ", fn->args[i]);
-		printf ("\n");
-
-		// count body expressions
-		printf ("expressions:\n");
-		while (it) {
-			print_expr (it);
-			printf ("\n");
-			it = it->next;
-		}
-		printf ("\n");
 	}
 
 	return ret;
 }
 
-Expr *parser_if (Token **tok)
+struct tn_expr *tn_parser_if (struct tn_token **tok)
 {
-	Expr *ret, *new;
+	struct tn_expr *ret, *new;
 
-	ret = parser_bool (tok);
+	ret = tn_parser_bool (tok);
 
 	if (!ret)
 		return NULL;
 
 	if (accept (TOK_QMRK)) {
-		new = parser_alloc ();
+		new = tn_parser_alloc ();
 
 		new->type = EXPR_IF;
 		new->data.ifs.cond = ret;
-		new->data.ifs.t = parser_if (tok);
-		new->data.ifs.f = parser_if (tok);
+		new->data.ifs.t = tn_parser_if (tok);
+		new->data.ifs.f = tn_parser_if (tok);
 
 		if (!new->data.ifs.t || !new->data.ifs.f) {
-			parser_free (new);
+			tn_parser_free (new);
 			return NULL;
 		}
 
@@ -449,27 +429,27 @@ Expr *parser_if (Token **tok)
 }
 
 // top-level expression, used for source files, functions, do-statements
-// unlike basically everything else, this returns a list of Expr
-Expr *parser_body (Token **tok)
+// unlike basically everything else, this returns a list of struct tn_expr
+struct tn_expr *tn_parser_body (struct tn_token **tok)
 {
 	// top = fn | assn | expr [top]
-	Token *prev;
-	Expr *ret, *last, *new;
+	struct tn_token *prev;
+	struct tn_expr *ret, *last, *new;
 
 	ret = last = NULL;
 
 	while (*tok && !accept (TOK_SCOL)) {
 		if (accept (TOK_PRNT)) {
-			new = parser_alloc ();
+			new = tn_parser_alloc ();
 
 			new->type = EXPR_PRNT;
-			new->data.print = parser_if (tok);
+			new->data.print = tn_parser_if (tok);
 		}
 		else
-			new = parser_if (tok);
+			new = tn_parser_if (tok);
 
 		if (!new) {
-			parser_free (ret); // free what we have
+			tn_parser_free (ret); // free what we have
 			return NULL;
 		}
 

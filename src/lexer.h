@@ -1,7 +1,7 @@
 #ifndef LEXER_H__
 #define LEXER_H__
 
-typedef enum {
+enum tn_token_type {
 	TOK_ZERO, TOK_PRNT, TOK_NIL, TOK_FN, TOK_DO,
 	TOK_EQ, TOK_NEQ, TOK_LTE, TOK_GTE, TOK_ANDL,
 	TOK_ORL, TOK_CAT, TOK_LCAT,
@@ -11,15 +11,10 @@ typedef enum {
 	TOK_MOD, TOK_COL, TOK_SCOL, TOK_QMRK,
 
 	TOK_IDENT, TOK_INT, TOK_FLOAT, TOK_STRING
-} TokenType;
+};
 
-typedef struct Builtin {
-	const char *str;
-	TokenType type;
-} Builtin;
-
-typedef struct Token {
-	TokenType type;
+struct tn_token {
+	enum tn_token_type type;
 
 	union {
 		const char *s;
@@ -27,7 +22,11 @@ typedef struct Token {
 		double d;
 	} data;
 
-	struct Token *next;
-} Token;
+	struct tn_token *next;
+};
+
+struct tn_token *tn_lexer_tokenize (char *src, struct tn_token **last);
+struct tn_token *tn_lexer_tokenize_file (FILE *f);
+void tn_lexer_free_tokens (struct tn_token *tok);
 
 #endif

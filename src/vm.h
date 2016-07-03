@@ -4,61 +4,61 @@
 #include <stdint.h>
 #include "array.h"
 
-struct Closure;
-typedef struct Value {
-	enum val_type {
+struct tn_closure;
+struct tn_value {
+	enum tn_val_type {
 		VAL_NIL, VAL_IDENT, VAL_INT, VAL_DBL, VAL_STR,
 		VAL_PAIR, VAL_CLSR
 	} type;
 
-	union val_data {
+	union tn_val_data {
 		int i;
 		double d;
 		char *s;
 		struct {
-			struct Value *a, *b;
+			struct tn_value *a, *b;
 		} pair;
-		struct Closure *cl;
+		struct tn_closure *cl;
 	} data;
 
-	struct Value *next; // for GC
+	struct tn_value *next; // for GC
 	uint8_t marked;
-} Value;
+};
 
-struct BSTNode;
-typedef struct Chunk {
+struct tn_bst;
+struct tn_chunk {
 	uint8_t code[512];
 	uint32_t pc;
-	array_def (subch, struct Chunk*);
+	array_def (subch, struct tn_chunk*);
 
-	// compiler specific stuff, the VM doesn't do anything with this
+	// compiler specific stuff, the struct tn_vm doesn't do anything with this
 	const char *name;
 	uint32_t maxvar;
-	struct BSTNode *vartree;
+	struct tn_bst *vartree;
 	array_def (upvals, const char*);
-} Chunk;
+};
 
-typedef struct Closure {
-	Chunk *ch;
-	array_def (upvals, struct Value*);
-} Closure;
+struct tn_closure {
+	struct tn_chunk *ch;
+	array_def (upvals, struct tn_value*);
+};
 
-typedef struct Scope {
+struct tn_scope {
 	uint32_t pc;
-	Chunk *ch;
-	array_def (vars, Value*);
-	struct Scope *next;
-} Scope;
+	struct tn_chunk *ch;
+	array_def (vars, struct tn_value*);
+	struct tn_scope *next;
+};
 
-struct GC;
-typedef struct VM {
-	Value **stack;
+struct tn_gc;
+struct tn_vm {
+	struct tn_value **stack;
 	unsigned int sp, st, ss;
-	Scope *sc;
-	struct GC *gc;
-} VM;
+	struct tn_scope *sc;
+	struct tn_gc *gc;
+};
 
-void vm_dispatch (VM *vm, Chunk *ch, Closure *cl);
-VM *vm_init (uint32_t init_ss);
+void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_closure *cl);
+struct tn_vm *tn_vm_init (uint32_t init_ss);
 
 #endif

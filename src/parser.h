@@ -3,55 +3,54 @@
 
 #include "array.h"
 
-typedef enum ExprType {
+enum tn_expr_type {
 	EXPR_NIL, EXPR_INT, EXPR_FLOAT, EXPR_STRING,
 	EXPR_IDENT, EXPR_ASSN, EXPR_FN, EXPR_UOP,
 	EXPR_BOP, EXPR_CALL, EXPR_IF, EXPR_ACCS,
 	EXPR_PRNT
-} ExprType;
+};
 
-struct ExprList;
-typedef struct Expr {
-	ExprType type;
+struct tn_expr {
+	enum tn_expr_type type;
 	union {
 		void *nil;
 		int i;
 		double d;
 		const char *s;
 		const char *id;
-		struct Expr *print;
-		struct expr_data_assn {
+		struct tn_expr *print;
+		struct tn_expr_data_assn {
 			const char *name;
-			struct Expr *expr;
+			struct tn_expr *expr;
 		} assn;
-		struct expr_data_fn {
+		struct tn_expr_data_fn {
 			const char *name;
 			array_def (args, const char*);
-			struct Expr *expr;
+			struct tn_expr *expr;
 		} fn;
-		struct expr_data_uop {
-			struct Expr *expr;
+		struct tn_expr_data_uop {
+			struct tn_expr *expr;
 			int op;
 		} uop;
-		struct expr_data_bop { 
-			struct Expr *left, *right;
+		struct tn_expr_data_bop { 
+			struct tn_expr *left, *right;
 			int op;
 		} bop;
-		struct expr_data_call {
-			struct Expr *fn, *args;
+		struct tn_expr_data_call {
+			struct tn_expr *fn, *args;
 		} call;
-		struct expr_data_ifs {
-			struct Expr *cond, *t, *f;
+		struct tn_expr_data_ifs {
+			struct tn_expr *cond, *t, *f;
 		} ifs;
-		struct expr_data_accs {
-			struct Expr *expr, *item;
+		struct tn_expr_data_accs {
+			struct tn_expr *expr, *item;
 		} accs;
 	} data;
-	struct Expr *next;
-} Expr;
+	struct tn_expr *next;
+};
 
-struct Token;
-Expr *parser_body (struct Token**);
-void parser_free (Expr *expr);
+struct tn_token;
+struct tn_expr *tn_parser_body (struct tn_token **tok);
+void tn_parser_free (struct tn_expr *expr);
 
 #endif

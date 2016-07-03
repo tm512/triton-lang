@@ -6,9 +6,9 @@
 #include "gc.h"
 
 #define printf(...) (0) // shut up
-Value *gc_init_pool (uint32_t size)
+struct tn_value *tn_gc_init_pool (uint32_t size)
 {
-	Value *ret;
+	struct tn_value *ret;
 	int i;
 
 	ret = malloc (size * sizeof (*ret));
@@ -16,7 +16,7 @@ Value *gc_init_pool (uint32_t size)
 	if (!ret)
 		return NULL;
 
-	printf ("gc: allocated %u Values\n", size);
+	printf ("gc: allocated %u struct tn_values\n", size);
 
 	for (i = 0; i < size - 1; i++)
 		ret[i].next = &ret[i + 1];
@@ -26,14 +26,14 @@ Value *gc_init_pool (uint32_t size)
 	return ret;
 }
 
-GC *gc_init (VM *vm, uint32_t bytes)
+struct tn_gc *tn_gc_init (struct tn_vm *vm, uint32_t bytes)
 {
-	GC *ret = malloc (sizeof (*ret));
+	struct tn_gc *ret = malloc (sizeof (*ret));
 
 	if (!ret)
 		return NULL;
 
-	ret->free = gc_init_pool (bytes / sizeof (*ret->free));
+	ret->free = tn_gc_init_pool (bytes / sizeof (*ret->free));
 
 	if (!ret->free) {
 		free (ret);
@@ -47,16 +47,16 @@ GC *gc_init (VM *vm, uint32_t bytes)
 	return ret;
 }
 
-Value *gc_resize (GC *gc)
+struct tn_value *tn_gc_resize (struct tn_gc *gc)
 {
-	gc->free = gc_init_pool (gc->num_nodes);
+	gc->free = tn_gc_init_pool (gc->num_nodes);
 	printf ("gc: allocated %u more nodes\n", gc->num_nodes);
 	gc->num_nodes *= 2;
 
 	return gc->free;
 }
 
-void gc_scan (Value *v)
+void tn_gc_scan (struct tn_value *v)
 {
 	if (!v || v->marked)
 		return;
@@ -64,21 +64,21 @@ void gc_scan (Value *v)
 	v->marked = 1;
 
 	if (v->type == VAL_PAIR) {
-		gc_scan (v->data.pair.a);
-		gc_scan (v->data.pair.b);
+		tn_gc_scan (v->data.pair.a);
+		tn_gc_scan (v->data.pair.b);
 	}
 	else if (v->type == VAL_CLSR) {
 		int i;
 		for (i = 0; i < v->data.cl->upvals_num; i++)
-			gc_scan (v->data.cl->upvals[i]);
+			tn_gc_scan (v->data.cl->upvals[i]);
 	}
 }
 
-Value *gc_collect (GC *gc)
+struct tn_value *tn_gc_collect (struct tn_gc *gc)
 {
 	int i;
-	Value *vit = gc->used, *prev, *next;
-	Scope *sit = gc->vm->sc;
+	struct tn_value *vit = gc->used, *prev, *next;
+	struct tn_scope *sit = gc->vm->sc;
 
 	printf ("gc: started cycle\n");
 
@@ -90,12 +90,12 @@ Value *gc_collect (GC *gc)
 
 	// traverse the stack
 	for (i = 0; gc->vm->stack[i]; i++)
-		gc_scan (gc->vm->stack[i]);
+		tn_gc_scan (gc->vm->stack[i]);
 
 	// go through each scope's variables and mark each one that is still reachable
 	while (sit) {
 		for (i = 0; i < sit->vars_num; i++)
-			gc_scan (sit->vars[i]);
+			tn_gc_scan (sit->vars[i]);
 
 		sit = sit->next;
 	}
@@ -126,14 +126,14 @@ Value *gc_collect (GC *gc)
 	return gc->free;
 }
 
-Value *gc_alloc (GC *gc)
+struct tn_value *tn_gc_alloc (struct tn_gc *gc)
 {
-	Value *ret;
+	struct tn_value *ret;
 
 	if (!gc)
 		return NULL;
 
-	if (!gc->free && !gc_collect (gc) && !gc_resize (gc)) {
+	if (!gc->free && !tn_gc_collect (gc) && !tn_gc_resize (gc)) {
 		error ("out of memory\n");
 		return NULL;
 	}

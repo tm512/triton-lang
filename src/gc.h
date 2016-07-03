@@ -1,13 +1,13 @@
 #ifndef GC_H__
 #define GC_H__
 
-typedef struct GC {
-	Value *used, *free;
-	VM *vm;
+struct tn_gc {
+	struct tn_value *used, *free;
+	struct tn_vm *vm;
 	uint32_t num_nodes;
-} GC;
+};
 
-GC *gc_init (VM *vm, uint32_t bytes);
-Value *gc_alloc (GC *gc);
+struct tn_gc *tn_gc_init (struct tn_vm *vm, uint32_t bytes);
+struct tn_value *tn_gc_alloc (struct tn_gc *gc);
 
 #endif

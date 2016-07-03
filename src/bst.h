@@ -1,19 +1,19 @@
 #ifndef BST_H__
 #define BST_H__
 
-typedef struct BSTNode {
+struct tn_bst {
 	const char *key;
 	void *val;
 	uint32_t p;
-	struct BSTNode *right, *left;
-} BSTNode;
+	struct tn_bst *right, *left;
+};
 
-BSTNode *bst_insert (BSTNode *node, const char *key, void *val);
-BSTNode *bst_merge (BSTNode *a, BSTNode *b);
-BSTNode *bst_delete (BSTNode *node, const char *key, BSTNode **rem);
-void *bst_find (BSTNode *node, const char *key);
+struct tn_bst *tn_bst_insert (struct tn_bst *node, const char *key, void *val);
+struct tn_bst *tn_bst_merge (struct tn_bst *a, struct tn_bst *b);
+struct tn_bst *tn_bst_delete (struct tn_bst *node, const char *key, struct tn_bst **rem);
+void *tn_bst_find (struct tn_bst *node, const char *key);
 
-int bst_depth (BSTNode *node);
-int bst_count (BSTNode *node);
+int tn_bst_depth (struct tn_bst *node);
+int tn_bst_count (struct tn_bst *node);
 
 #endif

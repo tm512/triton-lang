@@ -10,11 +10,11 @@
 #include "vm.h"
 #include "gc.h"
 
-Value nil = { VAL_NIL, ((union val_data) { 0 }) };
+struct tn_value nil = { VAL_NIL, ((union tn_val_data) { 0 }) };
 
-Value *vm_value (VM *vm, enum val_type type, union val_data data)
+static struct tn_value *tn_vm_value (struct tn_vm *vm, enum tn_val_type type, union tn_val_data data)
 {
-	Value *ret = gc_alloc (vm->gc);
+	struct tn_value *ret = tn_gc_alloc (vm->gc);
 
 	if (!ret)
 		return NULL;
@@ -25,7 +25,7 @@ Value *vm_value (VM *vm, enum val_type type, union val_data data)
 	return ret;
 }
 
-uint16_t vm_read16 (VM *vm)
+static uint16_t tn_vm_read16 (struct tn_vm *vm)
 {
 	uint16_t i;
 
@@ -35,7 +35,7 @@ uint16_t vm_read16 (VM *vm)
 	return i;
 }
 
-uint32_t vm_read32 (VM *vm)
+static uint32_t tn_vm_read32 (struct tn_vm *vm)
 {
 	uint32_t i;
 
@@ -47,7 +47,7 @@ uint32_t vm_read32 (VM *vm)
 	return i;
 }
 
-uint64_t vm_read64 (VM *vm)
+static uint64_t tn_vm_read64 (struct tn_vm *vm)
 {
 	uint64_t i;
 
@@ -63,19 +63,19 @@ uint64_t vm_read64 (VM *vm)
 	return i;
 }
 
-double vm_readdouble (VM *vm)
+static double tn_vm_readdouble (struct tn_vm *vm)
 {
-	uint64_t u64 = vm_read64 (vm);
+	uint64_t u64 = tn_vm_read64 (vm);
 	double *d = (double*)&u64;
 	return *d;
 }
 
-char *vm_readstring (VM *vm)
+static char *tn_vm_readstring (struct tn_vm *vm)
 {
 	uint16_t len;
 	char *ret;
 
-	len = vm_read16 (vm);
+	len = tn_vm_read16 (vm);
 	ret = strndup ((char*)vm->sc->ch->code + vm->sc->pc, len);
 	if (!ret)
 		return NULL;
@@ -84,11 +84,11 @@ char *vm_readstring (VM *vm)
 	return ret;
 }
 
-static inline void vm_push (VM *vm, Value *val)
+static inline void tn_vm_push (struct tn_vm *vm, struct tn_value *val)
 {
 	if (vm->sp == vm->ss) {
 		vm->ss *= 2;
-		vm->stack = realloc (vm->stack, vm->ss * sizeof (Value*));
+		vm->stack = realloc (vm->stack, vm->ss * sizeof (struct tn_value*));
 
 		if (!vm->stack) {
 			error ("realloc failure\n");
@@ -104,9 +104,9 @@ static inline void vm_push (VM *vm, Value *val)
 	vm->stack[vm->sp] = NULL; // GC should terminate here
 }
 
-void vm_print (Value *val)
+void tn_vm_print (struct tn_value *val)
 {
-	Value *it;
+	struct tn_value *it;
 	switch (val->type) {
 		case VAL_NIL:
 			printf ("nil");
@@ -125,7 +125,7 @@ void vm_print (Value *val)
 
 			printf ("[");
 			while (it != &nil) {
-				vm_print (it->data.pair.a);
+				tn_vm_print (it->data.pair.a);
 				it = it->data.pair.b;
 				if (it != &nil)
 					printf (" ");
@@ -149,27 +149,27 @@ void vm_print (Value *val)
 	v1d = (v1->type == VAL_DBL); \
 	v2d = (v2->type == VAL_DBL); \
 	if (v1i && v2i) \
-		vm_push (vm, vm_value (vm, VAL_INT, ((union val_data) { .i = v1->data.i OP v2->data.i }))); \
+		tn_vm_push (vm, tn_vm_value (vm, VAL_INT, ((union tn_val_data) { .i = v1->data.i OP v2->data.i }))); \
 	else if (v1d && v2d) \
-		vm_push (vm, vm_value (vm, VAL_DBL, ((union val_data) { .d = v1->data.d OP v2->data.d }))); \
+		tn_vm_push (vm, tn_vm_value (vm, VAL_DBL, ((union tn_val_data) { .d = v1->data.d OP v2->data.d }))); \
 	else if (v1i && v2d) \
-		vm_push (vm, vm_value (vm, VAL_DBL, ((union val_data) { .d = v1->data.i OP v2->data.d }))); \
+		tn_vm_push (vm, tn_vm_value (vm, VAL_DBL, ((union tn_val_data) { .d = v1->data.i OP v2->data.d }))); \
 	else if (v1d && v2i) \
-		vm_push (vm, vm_value (vm, VAL_DBL, ((union val_data) { .d = v1->data.d OP v2->data.i }))); \
+		tn_vm_push (vm, tn_vm_value (vm, VAL_DBL, ((union tn_val_data) { .d = v1->data.d OP v2->data.i }))); \
 } \
 break
 
-Closure *vm_closure (VM *vm)
+static struct tn_closure *tn_vm_closure (struct tn_vm *vm)
 {
-	Closure *ret = malloc (sizeof (*ret));
+	struct tn_closure *ret = malloc (sizeof (*ret));
 	uint16_t i, nargs;
 
 	if (!ret)
 		return NULL;
 
-	ret->ch = vm->sc->ch->subch[vm_read16 (vm)];
+	ret->ch = vm->sc->ch->subch[tn_vm_read16 (vm)];
 	array_init (ret->upvals);
-	nargs = vm_read16 (vm);
+	nargs = tn_vm_read16 (vm);
 
 	for (i = nargs; i > 0; i--)
 		array_add_at (ret->upvals, vm->stack[--vm->sp], i - 1);
@@ -177,7 +177,7 @@ Closure *vm_closure (VM *vm)
 	return ret;
 }
 
-int vm_true (Value *v)
+int tn_vm_true (struct tn_value *v)
 {
 	if (!v)
 		return 0;
@@ -190,12 +190,12 @@ int vm_true (Value *v)
 	}
 }
 
-int vm_false (Value *v)
+int tn_vm_false (struct tn_value *v)
 {
-	return !vm_true (v);
+	return !tn_vm_true (v);
 }
 
-Value *vm_cat (VM *vm, Value *a, Value *b)
+struct tn_value *tn_vm_cat (struct tn_vm *vm, struct tn_value *a, struct tn_value *b)
 {
 	char *buf;
 
@@ -205,32 +205,32 @@ Value *vm_cat (VM *vm, Value *a, Value *b)
 			return NULL;
 
 		sprintf (buf, "%s%s", a->data.s, b->data.s);
-		return vm_value (vm, VAL_STR, ((union val_data) { .s = buf }));
+		return tn_vm_value (vm, VAL_STR, ((union tn_val_data) { .s = buf }));
 	}
 
 	return NULL;
 }
 
-Value *vm_list_copy (VM *vm, Value *lst)
+struct tn_value *tn_vm_list_copy (struct tn_vm *vm, struct tn_value *lst)
 {
 	if (lst == &nil)
 		return &nil;
 
-	return vm_value (vm,
+	return tn_vm_value (vm,
 	                 VAL_PAIR,
-	                 ((union val_data) { .pair = { lst->data.pair.a, vm_list_copy (vm, lst->data.pair.b) }}));
+	                 ((union tn_val_data) { .pair = { lst->data.pair.a, tn_vm_list_copy (vm, lst->data.pair.b) }}));
 }
 
 // list concatenation
-Value *vm_lcat (VM *vm, Value *a, Value *b)
+struct tn_value *tn_vm_lcat (struct tn_vm *vm, struct tn_value *a, struct tn_value *b)
 {
-	Value *it;
+	struct tn_value *it;
 
 	if (b != &nil && b->type != VAL_PAIR)
-		b = vm_value (vm, VAL_PAIR, ((union val_data) { .pair = { b, &nil }}));
+		b = tn_vm_value (vm, VAL_PAIR, ((union tn_val_data) { .pair = { b, &nil }}));
 
 	if (a->type == VAL_PAIR) {
-		a = it = vm_list_copy (vm, a);
+		a = it = tn_vm_list_copy (vm, a);
 		while (it->data.pair.b != &nil) // go to the end of this list
 			it = it->data.pair.b;
 		it->data.pair.b = b;
@@ -238,13 +238,13 @@ Value *vm_lcat (VM *vm, Value *a, Value *b)
 		return a;
 	}
 	else
-		return vm_value (vm, VAL_PAIR, ((union val_data) { .pair = { a, b }}));
+		return tn_vm_value (vm, VAL_PAIR, ((union tn_val_data) { .pair = { a, b }}));
 }
 		
-void vm_dispatch (VM *vm, Chunk *ch, Closure *cl)
+void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_closure *cl)
 {
-	Value *v1, *v2, *v3;
-	Scope sc = { .pc = 0, .ch = ch, .next = vm->sc };
+	struct tn_value *v1, *v2, *v3;
+	struct tn_scope sc = { .pc = 0, .ch = ch, .next = vm->sc };
 
 	array_init (sc.vars);
 	vm->sc = &sc;
@@ -261,8 +261,8 @@ void vm_dispatch (VM *vm, Chunk *ch, Closure *cl)
 				v2 = pop ();
 				v1 = pop ();
 				if (v1->type == VAL_INT && v2->type == VAL_INT)
-					vm_push (vm,
-					         vm_value (vm, VAL_INT, ((union val_data) { .i = v1->data.i % v2->data.i })));
+					tn_vm_push (vm,
+					         tn_vm_value (vm, VAL_INT, ((union tn_val_data) { .i = v1->data.i % v2->data.i })));
 				break;
 			case OP_EQ: numop (==);
 			case OP_LT: numop (<);
@@ -272,70 +272,70 @@ void vm_dispatch (VM *vm, Chunk *ch, Closure *cl)
 			case OP_ANDL: // eventually use a boolean type for these, maybe
 				v2 = pop ();
 				v1 = pop ();
-				vm_push (vm,
-				         vm_value (vm, VAL_INT, ((union val_data) { .i = vm_true (v1) && vm_true (v2) })));
+				tn_vm_push (vm,
+				         tn_vm_value (vm, VAL_INT, ((union tn_val_data) { .i = tn_vm_true (v1) && tn_vm_true (v2) })));
 				break;
 			case OP_ORL:
 				v2 = pop ();
 				v1 = pop ();
-				vm_push (vm,
-				         vm_value (vm, VAL_INT, ((union val_data) { .i = vm_true (v1) && vm_true (v2) })));
+				tn_vm_push (vm,
+				         tn_vm_value (vm, VAL_INT, ((union tn_val_data) { .i = tn_vm_true (v1) && tn_vm_true (v2) })));
 				break;
 			case OP_CAT:
 				v2 = pop ();
 				v1 = pop ();
-				vm_push (vm, vm_cat (vm, v1, v2));
+				tn_vm_push (vm, tn_vm_cat (vm, v1, v2));
 				break;
 			case OP_LCAT:
 				v2 = pop ();
 				v1 = pop ();
-				vm_push (vm, vm_lcat (vm, v1, v2));
+				tn_vm_push (vm, tn_vm_lcat (vm, v1, v2));
 				break;
 			case OP_PSHI:
-				vm_push (vm, vm_value (vm, VAL_INT, ((union val_data) { .i = vm_read32 (vm) })));
+				tn_vm_push (vm, tn_vm_value (vm, VAL_INT, ((union tn_val_data) { .i = tn_vm_read32 (vm) })));
 				break;
 			case OP_PSHD:
-				vm_push (vm, vm_value (vm, VAL_DBL, ((union val_data) { .d = vm_readdouble (vm) })));
+				tn_vm_push (vm, tn_vm_value (vm, VAL_DBL, ((union tn_val_data) { .d = tn_vm_readdouble (vm) })));
 				break;
 			case OP_PSHS:
-				vm_push (vm, vm_value (vm, VAL_STR, ((union val_data) { .s = vm_readstring (vm) })));
+				tn_vm_push (vm, tn_vm_value (vm, VAL_STR, ((union tn_val_data) { .s = tn_vm_readstring (vm) })));
 				break;
 			case OP_PSHV:
-				vm_push (vm, sc.vars[vm_read32 (vm) - 1]);
+				tn_vm_push (vm, sc.vars[tn_vm_read32 (vm) - 1]);
 				break;
 			case OP_UVAL:
 				if (cl)
-					vm_push (vm, cl->upvals[vm_read32 (vm) - 1]);
+					tn_vm_push (vm, cl->upvals[tn_vm_read32 (vm) - 1]);
 				break;
 			case OP_SET:
-				array_add_at (sc.vars, vm->stack[vm->sp - 1], vm_read32 (vm) - 1);
+				array_add_at (sc.vars, vm->stack[vm->sp - 1], tn_vm_read32 (vm) - 1);
 				break;
 			case OP_POP:
-				array_add_at (sc.vars, pop (), vm_read32 (vm) - 1);
+				array_add_at (sc.vars, pop (), tn_vm_read32 (vm) - 1);
 				break;
 			case OP_CLSR:
-				vm_push (vm, vm_value (vm, VAL_CLSR, ((union val_data) { .cl = vm_closure (vm) })));
+				tn_vm_push (vm, tn_vm_value (vm, VAL_CLSR, ((union tn_val_data) { .cl = tn_vm_closure (vm) })));
 				break;
 			case OP_SELF:
-				vm_push (vm, vm_value (vm, VAL_CLSR, ((union val_data) { .cl = cl })));
+				tn_vm_push (vm, tn_vm_value (vm, VAL_CLSR, ((union tn_val_data) { .cl = cl })));
 				break;
 			case OP_NIL:
-				vm_push (vm, &nil);
+				tn_vm_push (vm, &nil);
 				break;
 			case OP_JMP:
-				vm->sc->pc = vm_read32 (vm);
+				vm->sc->pc = tn_vm_read32 (vm);
 				break;
 			case OP_JNZ:
 				v1 = pop ();
-				if (vm_true (v1))
-					vm->sc->pc = vm_read32 (vm);
+				if (tn_vm_true (v1))
+					vm->sc->pc = tn_vm_read32 (vm);
 				else
 					vm->sc->pc += 4;
 				break;
 			case OP_JZ:
 				v1 = pop ();
-				if (vm_false (v1))
-					vm->sc->pc = vm_read32 (vm);
+				if (tn_vm_false (v1))
+					vm->sc->pc = tn_vm_read32 (vm);
 				else
 					vm->sc->pc += 4;
 				break;
@@ -343,22 +343,22 @@ void vm_dispatch (VM *vm, Chunk *ch, Closure *cl)
 				v1 = pop ();
 				if (v1->type == VAL_CLSR) {
 					//printf ("calling 0x%lx\n", (uint64_t)v1->data.cl);
-					vm_dispatch (vm, v1->data.cl->ch, v1->data.cl);
+					tn_vm_dispatch (vm, v1->data.cl->ch, v1->data.cl);
 				}
 				break;
 			case OP_HEAD:
 				v1 = pop ();
 				if (v1->type == VAL_PAIR)
-					vm_push (vm, v1->data.pair.a);
+					tn_vm_push (vm, v1->data.pair.a);
 				break;
 			case OP_TAIL:
 				v1 = pop ();
 				if (v1->type == VAL_PAIR)
-					vm_push (vm, v1->data.pair.b);
+					tn_vm_push (vm, v1->data.pair.b);
 				break;
 			case OP_PRNT:
 				v1 = pop ();
-				vm_print (v1);
+				tn_vm_print (v1);
 				printf ("\n");
 				break;
 			case OP_RET:
@@ -372,14 +372,14 @@ void vm_dispatch (VM *vm, Chunk *ch, Closure *cl)
 	}
 }
 
-VM *vm_init (uint32_t init_ss)
+struct tn_vm *tn_vm_init (uint32_t init_ss)
 {
-	VM *ret = malloc (sizeof (*ret));
+	struct tn_vm *ret = malloc (sizeof (*ret));
 
 	if (!ret)
 		return NULL;
 
-	ret->stack = malloc (init_ss * sizeof (Value*));
+	ret->stack = malloc (init_ss * sizeof (struct tn_value*));
 
 	if (!ret->stack) {
 		free (ret);
@@ -391,7 +391,7 @@ VM *vm_init (uint32_t init_ss)
 
 	ret->sc = NULL;
 
-	ret->gc = gc_init (ret, 2 * 1024);
+	ret->gc = tn_gc_init (ret, 2 * 1024);
 
 	return ret;
 }

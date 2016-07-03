@@ -10,7 +10,10 @@
 #include "vm.h"
 
 // these need to be in order of descending length, so that we find the longest match first
-static Builtin builtins[] = {
+static struct tn_builtin {
+	const char *str;
+	enum tn_token_type type;
+} builtins[] = {
 	{ "print", TOK_PRNT },
 	{ "nil", TOK_NIL },
 	{ "do", TOK_DO },
@@ -40,7 +43,7 @@ static Builtin builtins[] = {
 	{ NULL, TOK_ZERO }
 };
 
-int lexer_identifier (char **src, Token *ret)
+static int tn_lexer_identifier (char **src, struct tn_token *ret)
 {
 	int len;
 	char *c = *src;
@@ -60,7 +63,7 @@ int lexer_identifier (char **src, Token *ret)
 	return 0;
 }
 
-int lexer_number (char **src, Token *ret)
+static int tn_lexer_number (char **src, struct tn_token *ret)
 {
 	int i = 0, frac = 0;
 	double d = 0.0, div = 1;
@@ -88,7 +91,7 @@ int lexer_number (char **src, Token *ret)
 		ret->data.d = d;
 	}
 	else if (isalpha (*c) || *c == '_') { // this is an identifier, not a number
-		return lexer_identifier (src, ret);
+		return tn_lexer_identifier (src, ret);
 	}
 	else {
 		ret->type = TOK_INT;
@@ -99,7 +102,7 @@ int lexer_number (char **src, Token *ret)
 	return 0;
 }
 
-int lexer_string (char **src, Token *ret)
+static int tn_lexer_string (char **src, struct tn_token *ret)
 {
 	char *str;
 	char *c = (*src) + 1;
@@ -146,11 +149,11 @@ int lexer_string (char **src, Token *ret)
 	return 0;
 }
 
-Token *lexer_token (char **src)
+static struct tn_token *tn_lexer_token (char **src)
 {
 	char *c;
 	int i, len;
-	Token *ret;
+	struct tn_token *ret;
 
 	// skip to the first non-space character
 	while (**src && isspace (**src) && ++(*src));
@@ -165,11 +168,11 @@ Token *lexer_token (char **src)
 		return NULL;
 
 	// see if the token is a number
-	if (isdigit (*c) && !lexer_number (src, ret))
+	if (isdigit (*c) && !tn_lexer_number (src, ret))
 		return ret;
 
 	// see if the token is a string literal
-	if (*c == '"' && !lexer_string (src, ret))
+	if (*c == '"' && !tn_lexer_string (src, ret))
 		return ret;
 
 	// see if the token is a builtin
@@ -184,7 +187,7 @@ Token *lexer_token (char **src)
 	}
 
 	// the last option is that this is an identifier
-	if ((isalpha (*c) || *c == '_') && !lexer_identifier (src, ret))
+	if ((isalpha (*c) || *c == '_') && !tn_lexer_identifier (src, ret))
 		return ret;
 
 	error ("unrecognized token at: %s\n", c);
@@ -193,82 +196,54 @@ Token *lexer_token (char **src)
 	return NULL;
 }
 
-Token *lexer_tokenize (char *src, Token **last)
+struct tn_token *tn_lexer_tokenize (char *src, struct tn_token **last)
 {
-	Token *ret, *it;
+	struct tn_token *ret, *it;
 
 	// grab the first token
-	ret = it = lexer_token (&src);
+	ret = it = tn_lexer_token (&src);
 
 	// keep grabbing tokens until we run out
 	while (it) {
 		if (last)
 			*last = it;
 
-		it->next = lexer_token (&src);
+		it->next = tn_lexer_token (&src);
 		it = it->next;
 	}
 
 	return ret;
 }
 
-Token *lexer_tokenize_file (FILE *f)
+struct tn_token *tn_lexer_tokenize_file (FILE *f)
 {
 	char line[4096];
-	Token *ret, *last, *tmp;
+	struct tn_token *ret, *last, *tmp;
 
 	ret = last = tmp = NULL;
 
 	// tokenize first line of file
 	while (!last) {
 		fgets (line, 4096, f);
-		ret = lexer_tokenize (line, &last);
+		ret = tn_lexer_tokenize (line, &last);
 	}
 
 	// keep tokenizing lines, appending to the last token from the last invokation
 	while (fgets (line, 4096, f)) {
-		last->next = lexer_tokenize (line, &tmp);
+		last->next = tn_lexer_tokenize (line, &tmp);
 		last = tmp ? tmp : last;
 	}
 
 	return ret;
 }
 
-void lexer_free_tokens (Token *tok)
+void tn_lexer_free_tokens (struct tn_token *tok)
 {
-	Token *it, *next = tok;
+	struct tn_token *it, *next = tok;
 	while ((it = next)) {
 		next = it->next;
 		if (it->type == TOK_STRING)
 			free ((void*)it->data.s);
 		free (it);
 	}
-}
-
-#include <time.h>
-
-int main (int argc, char **argv)
-{
-	Token *tok, *bak;
-	Expr *ast;
-	Chunk *code;
-	VM *vm = vm_init (1024);
-	struct timespec start, end;
-
-	tok = bak = lexer_tokenize_file (argv[1] ? fopen (argv[1], "r") : stdin);
-	ast = parser_body (&tok);
-
-	if (!ast) {
-		lexer_free_tokens (bak);
-		error ("parsing failed\n");
-		return 1;
-	}
-
-	code = gen_compile (ast, NULL, NULL, 0);
-	parser_free (ast);
-//	clock_gettime (CLOCK_MONOTONIC, &start);
-	vm_dispatch (vm, code, NULL);
-//	clock_gettime (CLOCK_MONOTONIC, &end);
-//	printf ("completed execution in %lis %lins\n", end.tv_sec - start.tv_sec, end.tv_nsec - start.tv_nsec);
-	return 0;
 }
