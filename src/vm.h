@@ -47,7 +47,7 @@ struct tn_scope {
 		uint32_t refs;
 	} *vars;
 
-	struct tn_scope *next;
+	struct tn_scope *next, *gc_next;
 };
 
 struct tn_closure {

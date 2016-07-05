@@ -96,24 +96,6 @@ static void tn_gen_ident (struct tn_chunk *ch, const char *name)
 
 	//if (!strcmp (name, ch->name)
 	//	tn_gen_emit8 (ch, OP_SELF);
-#if 0
-	if (id != 0) {
-		tn_gen_emit8 (ch, OP_PSHV);
-		tn_gen_emit32 (ch, id);
-		printf ("%.5s %s (%x)\n", "PSHV", name, id);
-	}
-	else if (!ch->name || strcmp (name, ch->name)) {
-		// set an upvalue
-		tn_gen_emit8 (ch, OP_UVAL);
-		tn_gen_emit32 (ch, ch->upvals_num + 1);
-		printf ("%.5s %s (%x)\n", "UVAL", name, ch->upvals_num + 1);
-		array_add (ch->upvals, name);
-	}
-	else {
-		tn_gen_emit8 (ch, OP_SELF);
-		printf ("SELF\n");
-	}
-#endif
 }
 
 #define op(NAME) [TOK_##NAME] = OP_##NAME
@@ -332,10 +314,10 @@ struct tn_chunk *tn_gen_compile (struct tn_expr *ex, const char *name, const cha
 		tn_gen_expr (ret, it);
 		it = it->next;
 
-		if (it) { // discard this value, we don't need it on the stack
-			tn_gen_emit8 (ret, OP_POP);
-			tn_gen_emit32 (ret, 0);
-		}
+//		if (it) { // discard this value, we don't need it on the stack
+//			tn_gen_emit8 (ret, OP_POP);
+//			tn_gen_emit32 (ret, 0);
+//		}
 	}
 
 	tn_gen_emit8 (ret, OP_RET);

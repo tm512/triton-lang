@@ -309,6 +309,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 	sc->ch = ch;
 	//sc->refs++;
 	sc->next = cl ? cl->data.cl->sc : vm->sc;
+	sc->gc_next = vm->sc; // the GC needs to traverse the real call stack
 	vm->sc = sc;
 
 	if (vm->sc == vm->sc->next)
@@ -474,7 +475,7 @@ struct tn_vm *tn_vm_init (uint32_t init_ss)
 
 	ret->sc = NULL;
 
-	ret->gc = tn_gc_init (ret, 2 * 1024);
+	ret->gc = tn_gc_init (ret, sizeof (struct tn_value) * 10);
 
 	return ret;
 }

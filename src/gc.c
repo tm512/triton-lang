@@ -107,13 +107,14 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 		for (i = 0; i < sit->vars->arr_num; i++)
 			tn_gc_scan (sit->vars->arr[i]);
 
-		sit = sit->next;
+		sit = sit->gc_next;
 	}
 
 	vit = gc->used;
 	prev = NULL;
 	while (vit) {
 		if (vit->marked) { // still reachable
+			printf ("gc: 0x%08lx still reachable (%i)\n", vit, vit->type);
 			prev = vit;
 			vit = vit->next;
 		}
