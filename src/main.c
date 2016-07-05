@@ -11,9 +11,26 @@ int main (int argc, char **argv)
 	int repl = 0;
 	char line[4096];
 	struct tn_token *tok = NULL, *bak = NULL;
-	struct tn_expr *ast;
-	struct tn_chunk *code;
+	struct tn_expr *ast = NULL;
+	struct tn_chunk *code = NULL;
+	struct tn_scope *sc = tn_vm_scope (1); // acts as a global scope for the REPL
 	struct tn_vm *vm = tn_vm_init (1024);
+
+	if (!sc) {
+		error ("failed to allocate scope\n");
+		return 1;
+	}
+
+	// we can load some builtins here
+	// ugly but temporary:
+	{
+		tok = bak = tn_lexer_tokenize ("fn map(f,l) l ? f(l:h) :: map(f,l:t) nil ;"
+		                               "fn seq(s,e) s < e ? s :: seq(s+1,e) e ;", NULL);
+		ast = tn_parser_body (&tok);
+		code = tn_gen_compile (ast, NULL, NULL, 0, NULL, code ? code->vartree : NULL);
+		tn_parser_free (ast);
+		tn_vm_dispatch (vm, code, NULL, sc);
+	}
 
 	if (argc > 1)
 		tok = bak = tn_lexer_tokenize_file (fopen (argv[1], "r"));
@@ -33,7 +50,7 @@ int main (int argc, char **argv)
 				continue;
 			}
 
-			code = tn_gen_compile (ast, NULL, NULL, 0);
+			code = tn_gen_compile (ast, NULL, NULL, 0, NULL, code ? code->vartree : NULL);
 			tn_parser_free (ast);
 
 			if (!code) {
@@ -43,7 +60,7 @@ int main (int argc, char **argv)
 				continue;
 			}
 
-			tn_vm_dispatch (vm, code, NULL);
+			tn_vm_dispatch (vm, code, NULL, sc);
 
 			if (repl) {
 				tn_vm_print (vm->stack[vm->sp - 1]);

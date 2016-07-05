@@ -159,20 +159,46 @@ void tn_vm_print (struct tn_value *val)
 } \
 break
 
+static struct tn_scope *tn_vm_scope_copy (struct tn_scope *sc)
+{
+	struct tn_scope *ret;
+
+	if (!sc)
+		return NULL;
+
+	ret = malloc (sizeof (*ret));
+
+	if (!ret) {
+		error ("malloc failed\n");
+		return NULL;
+	}
+
+	ret->pc = sc->pc;
+	ret->keep = 0;
+	ret->ch = sc->ch;
+	ret->vars = sc->vars;
+	ret->vars->refs++;
+	ret->next = tn_vm_scope_copy (sc->next);
+
+	return ret;
+}
+
 static struct tn_closure *tn_vm_closure (struct tn_vm *vm)
 {
 	struct tn_closure *ret = malloc (sizeof (*ret));
+	struct tn_scope *it;
 	uint16_t i, nargs;
 
 	if (!ret)
 		return NULL;
 
 	ret->ch = vm->sc->ch->subch[tn_vm_read16 (vm)];
-	array_init (ret->upvals);
-	nargs = tn_vm_read16 (vm);
+	ret->sc = tn_vm_scope_copy (vm->sc);
+//	array_init (ret->upvals);
+//	nargs = tn_vm_read16 (vm);
 
-	for (i = nargs; i > 0; i--)
-		array_add_at (ret->upvals, vm->stack[--vm->sp], i - 1);
+//	for (i = nargs; i > 0; i--)
+//		array_add_at (ret->upvals, vm->stack[--vm->sp], i - 1);
 
 	return ret;
 }
@@ -240,18 +266,58 @@ struct tn_value *tn_vm_lcat (struct tn_vm *vm, struct tn_value *a, struct tn_val
 	else
 		return tn_vm_value (vm, VAL_PAIR, ((union tn_val_data) { .pair = { a, b }}));
 }
-		
-void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_closure *cl)
+
+struct tn_scope *tn_vm_scope (uint8_t keep)
+{
+	struct tn_scope *ret = malloc (sizeof (*ret));
+	struct tn_scope_vars *vars = malloc (sizeof (*vars));
+
+	if (!ret || !vars)
+		goto error;
+
+	ret->keep = keep;
+	ret->vars = vars;
+	array_init (ret->vars->arr);
+	ret->vars->refs = 1;
+	ret->next = NULL;
+
+	if (!ret->vars->arr)
+		goto error;
+
+	return ret;
+
+error:
+	free (ret);
+	free (vars);
+	return NULL;
+}
+
+void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc)
 {
 	struct tn_value *v1, *v2, *v3;
-	struct tn_scope sc = { .pc = 0, .ch = ch, .next = vm->sc };
 
-	array_init (sc.vars);
-	vm->sc = &sc;
+	// set up the current scope
+	if (!sc) {
+		sc = tn_vm_scope (0);
+		if (!sc) {
+			error ("couldn't allocate a new scope\n");
+			return;
+		}
+	}
 
+	sc->pc = 0;
+	sc->ch = ch;
+	//sc->refs++;
+	sc->next = cl ? cl->data.cl->sc : vm->sc;
+	vm->sc = sc;
+
+	if (vm->sc == vm->sc->next)
+		error ("scope loop\n");
+
+	// execute the chunk's code
 	while (1) {
-	//	printf ("op: %x\n", ch->code[sc.pc]);
-		switch (ch->code[sc.pc++]) {
+	//	printf ("op: %x\n", ch->code[sc->pc]);
+		switch (ch->code[sc->pc++]) {
 			case OP_NOP: break;
 			case OP_ADD: numop (+);
 			case OP_SUB: numop (-);
@@ -300,24 +366,33 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_closure *c
 			case OP_PSHS:
 				tn_vm_push (vm, tn_vm_value (vm, VAL_STR, ((union tn_val_data) { .s = tn_vm_readstring (vm) })));
 				break;
-			case OP_PSHV:
-				tn_vm_push (vm, sc.vars[tn_vm_read32 (vm) - 1]);
+			case OP_PSHV: {
+				struct tn_scope *s = sc;
+				uint16_t depth = tn_vm_read16 (vm);
+
+				while (depth--)
+					s = s->next;
+
+				tn_vm_push (vm, s->vars->arr[tn_vm_read32 (vm) - 1]);
 				break;
-			case OP_UVAL:
-				if (cl)
-					tn_vm_push (vm, cl->upvals[tn_vm_read32 (vm) - 1]);
-				break;
+			}
 			case OP_SET:
-				array_add_at (sc.vars, vm->stack[vm->sp - 1], tn_vm_read32 (vm) - 1);
+				array_add_at (sc->vars->arr, vm->stack[vm->sp - 1], tn_vm_read32 (vm) - 1);
 				break;
-			case OP_POP:
-				array_add_at (sc.vars, pop (), tn_vm_read32 (vm) - 1);
+			case OP_POP: {
+				uint32_t id = tn_vm_read32 (vm);
+				if (id > 0)
+					array_add_at (sc->vars->arr, pop (), id - 1);
+				else
+					pop ();
 				break;
+			}
 			case OP_CLSR:
 				tn_vm_push (vm, tn_vm_value (vm, VAL_CLSR, ((union tn_val_data) { .cl = tn_vm_closure (vm) })));
 				break;
 			case OP_SELF:
-				tn_vm_push (vm, tn_vm_value (vm, VAL_CLSR, ((union tn_val_data) { .cl = cl })));
+				if (cl)
+					tn_vm_push (vm, cl);
 				break;
 			case OP_NIL:
 				tn_vm_push (vm, &nil);
@@ -343,7 +418,8 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_closure *c
 				v1 = pop ();
 				if (v1->type == VAL_CLSR) {
 					//printf ("calling 0x%lx\n", (uint64_t)v1->data.cl);
-					tn_vm_dispatch (vm, v1->data.cl->ch, v1->data.cl);
+					tn_vm_dispatch (vm, v1->data.cl->ch, v1, NULL);
+					vm->sc = sc;
 				}
 				break;
 			case OP_HEAD:
@@ -360,12 +436,19 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_closure *c
 				v1 = pop ();
 				tn_vm_print (v1);
 				printf ("\n");
+				tn_vm_push (vm, &nil);
 				break;
 			case OP_RET:
 			case OP_END:
-				free (vm->sc->vars);
-				vm->sc = vm->sc->next;
-			//	gc_collect (vm->gc);
+				if (!vm->sc->keep) {
+					if (--vm->sc->vars->refs == 0) {
+						free (vm->sc->vars->arr);
+						free (vm->sc->vars);
+					}
+					free (vm->sc);
+				}
+
+				vm->sc = NULL;
 				return;
 			default: break;
 		}

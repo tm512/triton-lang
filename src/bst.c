@@ -68,6 +68,8 @@ struct tn_bst *tn_bst_insert (struct tn_bst *node, const char *key, void *val)
 		if (node->left->p < node->p)
 			return tn_bst_rotate_right (node);
 	}
+	else
+		node->val = val;
 
 	return node;
 }
@@ -111,7 +113,7 @@ struct tn_bst *tn_bst_delete (struct tn_bst *node, const char *key, struct tn_bs
 		node->right = tn_bst_delete (node->right, key, rem);
 	else if (cmp < 0)
 		node->left = tn_bst_delete (node->left, key, rem);
-	else if (cmp == 0) {
+	else {
 		*rem = node;
 		return tn_bst_merge (node->left, node->right);
 	}

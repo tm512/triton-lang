@@ -69,8 +69,14 @@ void tn_gc_scan (struct tn_value *v)
 	}
 	else if (v->type == VAL_CLSR) {
 		int i;
-		for (i = 0; i < v->data.cl->upvals_num; i++)
-			tn_gc_scan (v->data.cl->upvals[i]);
+		struct tn_scope *sit = v->data.cl->sc;
+
+		while (sit) {
+			for (i = 0; i < sit->vars->arr_num; i++)
+				tn_gc_scan (sit->vars->arr[i]);
+
+			sit = sit->next;
+		}
 	}
 }
 
@@ -78,15 +84,19 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 {
 	int i;
 	struct tn_value *vit = gc->used, *prev, *next;
-	struct tn_scope *sit = gc->vm->sc;
+	struct tn_scope *sit = gc->vm->sc, *snext;
 
 	printf ("gc: started cycle\n");
 
 	// unmark every used value
+	int numcl = 0;
 	while (vit) {
+		if (vit->type == VAL_CLSR) numcl++;
 		vit->marked = 0;
 		vit = vit->next;
 	}
+
+	printf ("%i closures allocated\n", numcl);
 
 	// traverse the stack
 	for (i = 0; gc->vm->stack[i]; i++)
@@ -94,8 +104,8 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 
 	// go through each scope's variables and mark each one that is still reachable
 	while (sit) {
-		for (i = 0; i < sit->vars_num; i++)
-			tn_gc_scan (sit->vars[i]);
+		for (i = 0; i < sit->vars->arr_num; i++)
+			tn_gc_scan (sit->vars->arr[i]);
 
 		sit = sit->next;
 	}
@@ -109,6 +119,24 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 		}
 		else {
 			printf ("gc: freeing 0x%08lx\n", vit);
+
+			if (vit->type == VAL_CLSR) {
+				printf ("gc: closure %lx\n", vit->data.cl);
+				sit = vit->data.cl->sc;
+				while (sit) {
+					snext = sit->next;
+
+					if (--sit->vars->refs == 0) {
+						free (sit->vars->arr);
+						free (sit->vars);
+					}
+
+					free (sit);
+					sit = snext;
+				}
+
+				free (vit->data.cl);
+			}
 
 			next = vit->next;
 			vit->next = gc->free;

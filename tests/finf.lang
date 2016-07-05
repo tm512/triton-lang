@@ -1,5 +1,6 @@
 fn adder (n)
   fn (a) a + n ;;
 
+print adder (2)(2)
 print add10 = adder (10)
 print add10 (2)

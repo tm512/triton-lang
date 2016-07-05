@@ -33,21 +33,27 @@ struct tn_chunk {
 
 	// compiler specific stuff, the struct tn_vm doesn't do anything with this
 	const char *name;
-	uint32_t maxvar;
 	struct tn_bst *vartree;
-	array_def (upvals, const char*);
-};
-
-struct tn_closure {
-	struct tn_chunk *ch;
-	array_def (upvals, struct tn_value*);
+	struct tn_chunk *next;
 };
 
 struct tn_scope {
 	uint32_t pc;
+	uint8_t keep;
 	struct tn_chunk *ch;
-	array_def (vars, struct tn_value*);
+
+	struct tn_scope_vars {
+		array_def (arr, struct tn_value*);
+		uint32_t refs;
+	} *vars;
+
 	struct tn_scope *next;
+};
+
+struct tn_closure {
+	struct tn_chunk *ch;
+	struct tn_scope *sc; // saves the call stack at closure creation
+	array_def (upvals, struct tn_value*);
 };
 
 struct tn_gc;
@@ -58,7 +64,10 @@ struct tn_vm {
 	struct tn_gc *gc;
 };
 
-void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_closure *cl);
+void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc);
+struct tn_scope *tn_vm_scope (uint8_t keep);
+void tn_vm_scope_inc_ref (struct tn_scope *sc);
+void tn_vm_scope_dec_ref (struct tn_scope *sc);
 struct tn_vm *tn_vm_init (uint32_t init_ss);
 
 #endif

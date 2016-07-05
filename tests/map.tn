@@ -10,5 +10,5 @@ fn map (f, lst)
 
 fn square (n) n * n ;
 
-list = seq (1, 10)
+list = seq (1, 40)
 print map (square, list)

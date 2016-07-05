@@ -21,12 +21,11 @@
 #define OP_PSHD	0x11
 #define OP_PSHS	0x12
 #define OP_PSHV	0x13
-#define OP_UVAL	0x14
-#define OP_SET	0x15
-#define OP_POP	0x16
-#define OP_CLSR	0x17
-#define OP_SELF	0x18
-#define OP_NIL	0x19
+#define OP_SET	0x14
+#define OP_POP	0x15
+#define OP_CLSR	0x16
+#define OP_SELF	0x17
+#define OP_NIL	0x18
 #define OP_JMP	0x20 // jump instructions
 #define OP_JNZ	0x21
 #define OP_JZ	0x22
