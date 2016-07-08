@@ -10,7 +10,7 @@ int main (int argc, char **argv)
 {
 	int repl = 0;
 	char line[4096];
-	struct tn_token *tok = NULL, *bak = NULL;
+	struct tn_token *tok = NULL, *last = NULL, *bak;
 	struct tn_expr *ast = NULL;
 	struct tn_chunk *code = NULL;
 	struct tn_scope *sc = tn_vm_scope (1); // acts as a global scope for the REPL
@@ -25,15 +25,12 @@ int main (int argc, char **argv)
 	// ugly but temporary:
 	{
 		tok = bak = tn_lexer_tokenize ("fn map(f,l) l ? f(l:h) :: map(f,l:t) nil ;"
-		                               "fn seq(s,e) s < e ? s :: seq(s+1,e) e ;", NULL);
-		ast = tn_parser_body (&tok);
-		code = tn_gen_compile (ast, NULL, NULL, 0, NULL, code ? code->vartree : NULL);
-		tn_parser_free (ast);
-		tn_vm_dispatch (vm, code, NULL, sc);
+		                               "fn seq(s,e) s < e ? s :: seq(s+1,e) e ;"
+		                               "nil", &last);	
 	}
 
 	if (argc > 1)
-		tok = bak = tn_lexer_tokenize_file (fopen (argv[1], "r"));
+		last->next = tn_lexer_tokenize_file (fopen (argv[1], "r"));
 	else {
 		printf ("triton " GITVER "\n\n");
 		repl = 1;
@@ -50,7 +47,7 @@ int main (int argc, char **argv)
 				continue;
 			}
 
-			code = tn_gen_compile (ast, NULL, NULL, 0, NULL, code ? code->vartree : NULL);
+			code = tn_gen_compile (ast, NULL, NULL, code ? code->vartree : NULL);
 			tn_parser_free (ast);
 
 			if (!code) {
@@ -60,10 +57,10 @@ int main (int argc, char **argv)
 				continue;
 			}
 
-			tn_vm_dispatch (vm, code, NULL, sc);
+			tn_vm_dispatch (vm, code, NULL, sc, 0);
 
 			if (repl) {
-				tn_vm_print (vm->stack[vm->sp - 1]);
+				tn_vm_print (vm->stack[--vm->sp]);
 				printf ("\n");
 			}
 		}

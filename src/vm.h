@@ -5,10 +5,11 @@
 #include "array.h"
 
 struct tn_closure;
+struct tn_vm;
 struct tn_value {
 	enum tn_val_type {
 		VAL_NIL, VAL_IDENT, VAL_INT, VAL_DBL, VAL_STR,
-		VAL_PAIR, VAL_CLSR
+		VAL_PAIR, VAL_CLSR, VAL_CFUN
 	} type;
 
 	union tn_val_data {
@@ -19,10 +20,11 @@ struct tn_value {
 			struct tn_value *a, *b;
 		} pair;
 		struct tn_closure *cl;
+		void (*cfun)(struct tn_vm *vm, int nargs);
 	} data;
 
 	struct tn_value *next; // for GC
-	uint8_t marked;
+	uint8_t flags;
 };
 
 struct tn_bst;
@@ -59,12 +61,13 @@ struct tn_closure {
 struct tn_gc;
 struct tn_vm {
 	struct tn_value **stack;
-	unsigned int sp, st, ss;
+	unsigned int sp, sb, ss;
 	struct tn_scope *sc;
+	struct tn_bst *globals;
 	struct tn_gc *gc;
 };
 
-void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc);
+void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc, int nargs);
 struct tn_scope *tn_vm_scope (uint8_t keep);
 void tn_vm_scope_inc_ref (struct tn_scope *sc);
 void tn_vm_scope_dec_ref (struct tn_scope *sc);

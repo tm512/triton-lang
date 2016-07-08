@@ -26,6 +26,8 @@
 #define OP_CLSR	0x16
 #define OP_SELF	0x17
 #define OP_NIL	0x18
+#define OP_GLOB	0x19
+#define OP_ARGS	0x1a
 #define OP_JMP	0x20 // jump instructions
 #define OP_JNZ	0x21
 #define OP_JZ	0x22
@@ -33,6 +35,10 @@
 #define OP_RET	0x24
 #define OP_HEAD	0x30 // list instructions
 #define OP_TAIL	0x31
+#define OP_LSTS	0x32
+#define OP_LSTE	0x33
+#define OP_NEG	0x40 // more operators
+#define OP_NOT	0x41
 #define OP_PRNT	0xfe // print top of stack, for debugging
 #define OP_END	0xff
 

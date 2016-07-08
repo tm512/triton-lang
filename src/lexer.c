@@ -16,6 +16,7 @@ static struct tn_builtin {
 } builtins[] = {
 	{ "print", TOK_PRNT },
 	{ "nil", TOK_NIL },
+	{ "...", TOK_ELPS },
 	{ "do", TOK_DO },
 	{ "fn", TOK_FN },
 	{ "==", TOK_EQ },
@@ -31,6 +32,8 @@ static struct tn_builtin {
 	{ ">", TOK_GT },
 	{ "(", TOK_LPAR },
 	{ ")", TOK_RPAR },
+	{ "[", TOK_LBRK },
+	{ "]", TOK_RBRK },
 	{ ",", TOK_COMM },
 	{ "+", TOK_ADD },
 	{ "-", TOK_SUB },
@@ -40,6 +43,7 @@ static struct tn_builtin {
 	{ ":", TOK_COL },
 	{ ";", TOK_SCOL },
 	{ "?", TOK_QMRK },
+	{ "!", TOK_EXCL },
 	{ NULL, TOK_ZERO }
 };
 

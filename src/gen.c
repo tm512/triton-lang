@@ -17,16 +17,14 @@ static uint32_t tn_gen_id_num (struct tn_chunk *ch, const char *name, int set)
 	// I don't want to allocate a bunch more stuff, so we're just storing the int in the pointer :/
 	uint32_t id = (uint32_t)tn_bst_find (ch->vartree, name);
 
-	if (id)
+	if (id || !set)
 		return id;
-	else if (set) {
+	else {
 		id = (uint32_t)tn_bst_find (ch->vartree, "") + 1; // the blank key holds what the highest id is
 		ch->vartree = tn_bst_insert (ch->vartree, name, (void*)(intptr_t)id);
 		ch->vartree = tn_bst_insert (ch->vartree, "", (void*)(intptr_t)id);
 		return id;
 	}
-	else
-		return 0;
 }
 
 static void tn_gen_emit8 (struct tn_chunk *ch, uint8_t n)
@@ -66,6 +64,16 @@ static void tn_gen_emitdouble (struct tn_chunk *ch, double n)
 	tn_gen_emit64 (ch, *u64);
 }
 
+static void tn_gen_emitstring (struct tn_chunk *ch, const char *s)
+{
+	int i;
+
+	tn_gen_emit16 (ch, strlen (s));
+
+	for (i = 0; s[i]; i++)
+		tn_gen_emit8 (ch, s[i]);
+}
+
 static void tn_gen_emitpos (struct tn_chunk *ch, uint32_t n, uint32_t pos)
 {
 	ch->code[pos++] = n & 0xff;
@@ -94,12 +102,22 @@ static void tn_gen_ident (struct tn_chunk *ch, const char *name)
 		it = it->next;
 	}
 
-	//if (!strcmp (name, ch->name)
-	//	tn_gen_emit8 (ch, OP_SELF);
+	// this is either a global or unbound
+	id = tn_gen_id_num (ch, name, 1);
+	tn_gen_emit8 (ch, OP_GLOB);
+	tn_gen_emitstring (ch, name);
+	tn_gen_emit8 (ch, OP_SET);
+	tn_gen_emit32 (ch, id);
+	printf ("GLOB %s\nSET  %s (%i)\n", name, name, id);
 }
 
 #define op(NAME) [TOK_##NAME] = OP_##NAME
-static uint8_t op_opcodes[] = {
+static uint8_t uop_opcodes[] = {
+	[TOK_SUB] = OP_NEG,
+	[TOK_EXCL] = OP_NOT
+};
+
+static uint8_t bop_opcodes[] = {
 	op (ADD),
 	op (SUB),
 	op (MUL),
@@ -145,10 +163,7 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 			break;
 		case EXPR_STRING:
 			tn_gen_emit8 (ch, OP_PSHS);
-			tn_gen_emit16 (ch, strlen (ex->data.s));
-
-			for (i = 0; ex->data.s[i]; i++)
-				tn_gen_emit8 (ch, ex->data.s[i]);
+			tn_gen_emitstring (ch, ex->data.s);
 			printf ("PSHS \"%s\"\n", ex->data.s);
 			break;
 		case EXPR_IDENT:
@@ -166,8 +181,7 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 			struct tn_chunk *new;
 
 			printf (".FN  %i\n", nfunc++);
-			new = tn_gen_compile (ex->data.fn.expr, ex->data.fn.name,
-			                      ex->data.fn.args, ex->data.fn.args_num, ch, NULL);
+			new = tn_gen_compile (ex->data.fn.expr, &ex->data.fn, ch, NULL);
 			printf (".END %i\n", --nfunc);
 			array_add (ch->subch, new);
 			sub = ch->subch[ch->subch_num - 1];
@@ -177,7 +191,12 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 			printf ("%.5s %i\n", "CLSR", ch->subch_num - 1);
 			break;
 		}
+		case EXPR_UOP:
+			tn_gen_expr (ch, ex->data.uop.expr);
+			tn_gen_emit8 (ch, uop_opcodes[ex->data.uop.op]);
+			break;
 		case EXPR_BOP:
+			// && and || require some flow control
 			if (ex->data.bop.op == TOK_ANDL || ex->data.bop.op == TOK_ORL) {
 				uint32_t j1, j2, out;
 
@@ -219,22 +238,27 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 				tn_gen_expr (ch, ex->data.bop.left);
 				tn_gen_expr (ch, ex->data.bop.right);
 
-				tn_gen_emit8 (ch, op_opcodes[ex->data.bop.op]);
-				printf ("%.5s\n", bops[op_opcodes[ex->data.bop.op] - OP_ADD]);
+				tn_gen_emit8 (ch, bop_opcodes[ex->data.bop.op]);
+				printf ("%.5s\n", bops[bop_opcodes[ex->data.bop.op] - OP_ADD]);
 			}
 			break;
-		case EXPR_CALL:
+		case EXPR_CALL: {
+			int nargs = 0;
+
 			it = ex->data.call.args;
 
 			while (it) {
 				tn_gen_expr (ch, it);
+				nargs++;
 				it = it->next;
 			}
 
 			tn_gen_expr (ch, ex->data.call.fn);
 			tn_gen_emit8 (ch, OP_CALL);
-			printf ("CALL\n");
+			tn_gen_emit32 (ch, nargs);
+			printf ("CALL %i\n", nargs);
 			break;
+		}
 		case EXPR_IF: {
 			uint32_t tskip, fskip; // we need to save positions for jump addresses
 
@@ -258,7 +282,7 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 			break;
 		}
 		case EXPR_ACCS: {
-			char *item;
+			const char *item;
 
 			tn_gen_expr (ch, ex->data.accs.expr);
 			if (ex->data.accs.item->type == EXPR_IDENT) {
@@ -283,8 +307,8 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 	}
 }
 
-struct tn_chunk *tn_gen_compile (struct tn_expr *ex, const char *name, const char **args,
-                                 int argn, struct tn_chunk *next, struct tn_bst *vartree)
+struct tn_chunk *tn_gen_compile (struct tn_expr *ex, struct tn_expr_data_fn *fn,
+                                 struct tn_chunk *next, struct tn_bst *vartree)
 {
 	int i;
 	struct tn_chunk *ret = malloc (sizeof (*ret));
@@ -294,30 +318,30 @@ struct tn_chunk *tn_gen_compile (struct tn_expr *ex, const char *name, const cha
 		return NULL;
 
 	ret->pc = 0;
-	ret->name = name;
+	ret->name = fn ? fn->name : NULL;
 	array_init (ret->subch);
 	ret->vartree = vartree;
 	ret->next = next;
 
-	// get ID numbers for all of the arguments
-	for (i = 0; i < argn; i++)
-		tn_gen_id_num (ret, args[i], 1);
+	if (fn) {
+		// get ID numbers for all of the arguments
+		for (i = 0; i < fn->args_num; i++)
+			tn_gen_id_num (ret, fn->args[i], 1);
 
-	// generate code to pop the arguments off of the stack
-	for (i = 1; i <= argn; i++) {
-		tn_gen_emit8 (ret, OP_POP);
-		tn_gen_emit32 (ret, i);
-		printf ("%.5s %x\n", "POP", i);
+		tn_gen_emit8 (ret, OP_ARGS);
+		tn_gen_emit8 (ret, fn->varargs);
+		tn_gen_emit32 (ret, fn->args_num);
+		printf ("ARGS %u %i\n", fn->varargs, fn->args_num);
 	}
 
 	while (it) {
 		tn_gen_expr (ret, it);
 		it = it->next;
 
-//		if (it) { // discard this value, we don't need it on the stack
-//			tn_gen_emit8 (ret, OP_POP);
-//			tn_gen_emit32 (ret, 0);
-//		}
+		if (it) { // discard this value, we don't need it on the stack
+			tn_gen_emit8 (ret, OP_POP);
+			tn_gen_emit32 (ret, 0);
+		}
 	}
 
 	tn_gen_emit8 (ret, OP_RET);

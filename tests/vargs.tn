@@ -1,0 +1,21 @@
+fn map (f, [lists])
+  fn head (lst) lst:h ;
+  fn tail (lst) lst:t ;
+  fn no_nil (lst)
+    lst ?
+      lst:h ?
+        no_nil (lst:t)
+        0
+      1 ;
+  fn map1 (f, lst)
+    lst ?
+      f (lst:h) :: map1 (f, lst:t)
+      nil ;
+  no_nil (lists) ?
+    apply (f, map1 (head, lists)) :: apply (map, f :: map1 (tail, lists))
+    nil ;
+
+fn add (a, b) a + b ;
+fn sq (n) n * n ;
+print map (add, seq (1, 5), seq (2, 6))
+print map (sq, seq (1, 5))

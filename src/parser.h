@@ -25,6 +25,7 @@ struct tn_expr {
 		} assn;
 		struct tn_expr_data_fn {
 			const char *name;
+			char varargs;
 			array_def (args, const char*);
 			struct tn_expr *expr;
 		} fn;

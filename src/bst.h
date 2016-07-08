@@ -1,6 +1,8 @@
 #ifndef BST_H__
 #define BST_H__
 
+#include <stdint.h>
+
 struct tn_bst {
 	const char *key;
 	void *val;

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "error.h"
+#include "bst.h"
 #include "vm.h"
 #include "gc.h"
 
@@ -58,10 +59,10 @@ struct tn_value *tn_gc_resize (struct tn_gc *gc)
 
 void tn_gc_scan (struct tn_value *v)
 {
-	if (!v || v->marked)
+	if (!v || v->flags & GC_MARKED)
 		return;
 
-	v->marked = 1;
+	v->flags |= GC_MARKED;
 
 	if (v->type == VAL_PAIR) {
 		tn_gc_scan (v->data.pair.a);
@@ -80,6 +81,16 @@ void tn_gc_scan (struct tn_value *v)
 	}
 }
 
+void tn_gc_globals (struct tn_bst *node)
+{
+	if (!node)
+		return;
+
+	tn_gc_scan (node->val);
+	tn_gc_globals (node->left);
+	tn_gc_globals (node->right);
+}
+
 struct tn_value *tn_gc_collect (struct tn_gc *gc)
 {
 	int i;
@@ -89,14 +100,15 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 	printf ("gc: started cycle\n");
 
 	// unmark every used value
-	int numcl = 0;
 	while (vit) {
-		if (vit->type == VAL_CLSR) numcl++;
-		vit->marked = 0;
+		vit->flags &= ~GC_MARKED;
 		vit = vit->next;
 	}
 
 	printf ("%i closures allocated\n", numcl);
+
+	// scan globals
+	tn_gc_globals (gc->vm->globals);
 
 	// traverse the stack
 	for (i = 0; gc->vm->stack[i]; i++)
@@ -113,7 +125,7 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 	vit = gc->used;
 	prev = NULL;
 	while (vit) {
-		if (vit->marked) { // still reachable
+		if (vit->flags != 0) {
 			printf ("gc: 0x%08lx still reachable (%i)\n", vit, vit->type);
 			prev = vit;
 			vit = vit->next;
@@ -172,6 +184,8 @@ struct tn_value *tn_gc_alloc (struct tn_gc *gc)
 	gc->free = ret->next;
 	ret->next = gc->used;
 	gc->used = ret;
+
+	ret->flags = GC_NEW;
 
 	return ret;
 }

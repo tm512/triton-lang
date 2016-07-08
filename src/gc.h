@@ -1,6 +1,10 @@
 #ifndef GC_H__
 #define GC_H__
 
+#define GC_MARKED	1
+#define GC_NEW		2
+#define GC_PRESERVE	4
+
 struct tn_gc {
 	struct tn_value *used, *free;
 	struct tn_vm *vm;

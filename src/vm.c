@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "error.h"
+#include "bst.h"
 #include "opcode.h"
 #include "parser.h"
 #include "gen.h"
@@ -11,6 +12,7 @@
 #include "gc.h"
 
 struct tn_value nil = { VAL_NIL, ((union tn_val_data) { 0 }) };
+struct tn_value lststart = { VAL_NIL, ((union tn_val_data) { 0 }) };
 
 static struct tn_value *tn_vm_value (struct tn_vm *vm, enum tn_val_type type, union tn_val_data data)
 {
@@ -23,6 +25,11 @@ static struct tn_value *tn_vm_value (struct tn_vm *vm, enum tn_val_type type, un
 	ret->data = data;
 
 	return ret;
+}
+
+static inline uint8_t tn_vm_read8 (struct tn_vm *vm)
+{
+	return vm->sc->ch->code[vm->sc->pc++];
 }
 
 static uint16_t tn_vm_read16 (struct tn_vm *vm)
@@ -84,6 +91,7 @@ static char *tn_vm_readstring (struct tn_vm *vm)
 	return ret;
 }
 
+void tn_vm_print (struct tn_value*);
 static inline void tn_vm_push (struct tn_vm *vm, struct tn_value *val)
 {
 	if (vm->sp == vm->ss) {
@@ -97,6 +105,18 @@ static inline void tn_vm_push (struct tn_vm *vm, struct tn_value *val)
 	}
 
 	vm->stack[vm->sp++] = val;
+	val->flags &= ~GC_NEW;
+
+	if (0)
+	{
+		int i;
+		printf ("stack: ");
+		for (i = 0; i < vm->sp; i++) {
+			tn_vm_print (vm->stack[i]);
+			printf (" ");
+		}
+		printf ("\n");
+	}
 
 	/* this is my "hack" to keep the GC behaved
 	   if the GC only scans up to the stack pointer, it could miss
@@ -134,6 +154,9 @@ void tn_vm_print (struct tn_value *val)
 			break;
 		case VAL_CLSR:
 			printf ("closure 0x%lx", (uint64_t)val->data.cl);
+			break;
+		case VAL_CFUN:
+			printf ("cfun 0x%lx", (uint64_t)val->data.cfun);
 			break;
 		default: break;
 	}
@@ -194,11 +217,6 @@ static struct tn_closure *tn_vm_closure (struct tn_vm *vm)
 
 	ret->ch = vm->sc->ch->subch[tn_vm_read16 (vm)];
 	ret->sc = tn_vm_scope_copy (vm->sc);
-//	array_init (ret->upvals);
-//	nargs = tn_vm_read16 (vm);
-
-//	for (i = nargs; i > 0; i--)
-//		array_add_at (ret->upvals, vm->stack[--vm->sp], i - 1);
 
 	return ret;
 }
@@ -208,10 +226,12 @@ int tn_vm_true (struct tn_value *v)
 	if (!v)
 		return 0;
 
+//	printf ("testing truth on: "); tn_vm_print (v); printf ("\n");
+
 	switch (v->type) {
 		case VAL_NIL: return 0;
 		case VAL_INT: return !!v->data.i;
-		case VAL_PAIR: return v->data.pair.a != &nil;
+		case VAL_PAIR: return 1;
 		default: return 0;
 	}
 }
@@ -250,6 +270,11 @@ struct tn_value *tn_vm_list_copy (struct tn_vm *vm, struct tn_value *lst)
 // list concatenation
 struct tn_value *tn_vm_lcat (struct tn_vm *vm, struct tn_value *a, struct tn_value *b)
 {
+	if (b != &nil && b->type != VAL_PAIR)
+		b = tn_vm_value (vm, VAL_PAIR, ((union tn_val_data) { .pair = { b, &nil }}));
+
+	return tn_vm_value (vm, VAL_PAIR, ((union tn_val_data) { .pair = { a, b } }));
+/*
 	struct tn_value *it;
 
 	if (b != &nil && b->type != VAL_PAIR)
@@ -265,6 +290,19 @@ struct tn_value *tn_vm_lcat (struct tn_vm *vm, struct tn_value *a, struct tn_val
 	}
 	else
 		return tn_vm_value (vm, VAL_PAIR, ((union tn_val_data) { .pair = { a, b }}));
+*/
+}
+
+struct tn_value *tn_vm_lcon (struct tn_vm *vm, int n)
+{
+	struct tn_value *val;
+
+	if (n == 0)
+		return &nil;
+
+	val = pop ();
+
+	return tn_vm_value (vm, VAL_PAIR, ((union tn_val_data) { .pair = { val, tn_vm_lcon (vm, n - 1) } }));
 }
 
 struct tn_scope *tn_vm_scope (uint8_t keep)
@@ -292,7 +330,7 @@ error:
 	return NULL;
 }
 
-void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc)
+void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc, int nargs)
 {
 	struct tn_value *v1, *v2, *v3;
 
@@ -307,13 +345,9 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 
 	sc->pc = 0;
 	sc->ch = ch;
-	//sc->refs++;
 	sc->next = cl ? cl->data.cl->sc : vm->sc;
 	sc->gc_next = vm->sc; // the GC needs to traverse the real call stack
 	vm->sc = sc;
-
-	if (vm->sc == vm->sc->next)
-		error ("scope loop\n");
 
 	// execute the chunk's code
 	while (1) {
@@ -398,6 +432,29 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 			case OP_NIL:
 				tn_vm_push (vm, &nil);
 				break;
+			case OP_GLOB:
+				v1 = tn_bst_find (vm->globals, tn_vm_readstring (vm));
+				v1 = v1 ? v1 : &nil;
+				tn_vm_push (vm, v1);
+				break;
+			case OP_ARGS: {
+				int i, op_nargs;
+				uint8_t varargs = tn_vm_read8 (vm);
+
+				op_nargs = tn_vm_read32 (vm);
+
+				for (i = 1; i <= op_nargs; i++) {
+					if (varargs && i == op_nargs) {
+						if (op_nargs <= nargs)
+							tn_vm_push (vm, tn_vm_lcon (vm, nargs - op_nargs + 1));
+						else
+							tn_vm_push (vm, &nil);
+					}
+
+					array_add_at (sc->vars->arr, pop (), i - 1);
+				}
+				break;
+			}
 			case OP_JMP:
 				vm->sc->pc = tn_vm_read32 (vm);
 				break;
@@ -415,23 +472,43 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				else
 					vm->sc->pc += 4;
 				break;
-			case OP_CALL:
+			case OP_CALL: {
+				int nargs = tn_vm_read32 (vm);
 				v1 = pop ();
+
 				if (v1->type == VAL_CLSR) {
-					//printf ("calling 0x%lx\n", (uint64_t)v1->data.cl);
-					tn_vm_dispatch (vm, v1->data.cl->ch, v1, NULL);
+					tn_vm_dispatch (vm, v1->data.cl->ch, v1, NULL, nargs);
 					vm->sc = sc;
 				}
+				else if (v1->type == VAL_CFUN)
+					v1->data.cfun (vm, nargs);
 				break;
+			}
 			case OP_HEAD:
 				v1 = pop ();
+				//printf ("type: %i\n", v1->type);
 				if (v1->type == VAL_PAIR)
 					tn_vm_push (vm, v1->data.pair.a);
+				else
+					tn_vm_push (vm, &nil);
 				break;
 			case OP_TAIL:
 				v1 = pop ();
 				if (v1->type == VAL_PAIR)
 					tn_vm_push (vm, v1->data.pair.b);
+				else
+					tn_vm_push (vm, &nil);
+				break;
+			case OP_NEG:
+				v1 = pop ();
+				if (v1->type == VAL_INT)
+					tn_vm_push (vm, tn_vm_value (vm, VAL_INT, ((union tn_val_data) { .i = -v1->data.i })));
+				else if (v1->type == VAL_DBL)
+					tn_vm_push (vm, tn_vm_value (vm, VAL_DBL, ((union tn_val_data) { .d = -v1->data.d })));
+				break;
+			case OP_NOT:
+				v1 = pop ();
+				tn_vm_push (vm, tn_vm_value (vm, VAL_INT, ((union tn_val_data) { .i = tn_vm_false (v1) })));
 				break;
 			case OP_PRNT:
 				v1 = pop ();
@@ -456,6 +533,41 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 	}
 }
 
+int tn_vm_flatten (struct tn_vm *vm, struct tn_value *lst)
+{
+	int ret = 0;
+
+	if (lst == &nil)
+		return 0;
+
+	ret = tn_vm_flatten (vm, lst->data.pair.b);
+	tn_vm_push (vm, lst->data.pair.a);
+	ret++;
+
+	return ret;
+}
+
+void tn_apply (struct tn_vm *vm)
+{
+	// fn (1, 2, 3) == 3 2 1 fn call
+	// apply (fn, [1 2 3]) == [1 2 3] fn apply call
+	int nargs;
+	struct tn_value *fn, *args, *tmp;
+	struct tn_scope *sc;
+
+	fn = pop ();
+	args = pop ();
+
+	//printf ("fn = "); tn_vm_print (fn);
+	//printf ("\nargs = "); tn_vm_print (args); printf ("\n");
+
+	nargs = tn_vm_flatten (vm, args);
+
+	sc = vm->sc;
+	tn_vm_dispatch (vm, fn->data.cl->ch, fn, NULL, nargs);
+	vm->sc = sc;
+}
+
 struct tn_vm *tn_vm_init (uint32_t init_ss)
 {
 	struct tn_vm *ret = malloc (sizeof (*ret));
@@ -470,12 +582,16 @@ struct tn_vm *tn_vm_init (uint32_t init_ss)
 		return NULL;
 	}
 
-	ret->sp = ret->st = 0;
+	ret->sp = ret->sb = 0;
 	ret->ss = init_ss;
 
 	ret->sc = NULL;
 
 	ret->gc = tn_gc_init (ret, sizeof (struct tn_value) * 10);
+
+	ret->globals = tn_bst_insert (ret->globals,
+	                              "apply",
+	                              tn_vm_value (ret, VAL_CFUN, ((union tn_val_data) { .cfun = tn_apply })));
 
 	return ret;
 }

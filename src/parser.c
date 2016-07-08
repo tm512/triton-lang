@@ -97,7 +97,7 @@ int tn_parser_bop_check (struct tn_expr *expr)
 
 struct tn_expr *tn_parser_fn (struct tn_token**);
 struct tn_expr *tn_parser_if (struct tn_token **);
-struct tn_expr *tn_parser_negate (struct tn_token**);
+struct tn_expr *tn_parser_uop (struct tn_token**);
 struct tn_expr *tn_parser_factor (struct tn_token **tok)
 {
 	// factor = (expr) | negate | ident [([args])] | int | float
@@ -105,9 +105,6 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 	struct tn_expr *ret, *new, *tmp;
 
 	ret = new = NULL;
-
-	if (accept (TOK_SUB))
-		return tn_parser_negate (tok);
 
 	if (accept (TOK_LPAR)) {
 		ret = tn_parser_if (tok);
@@ -211,15 +208,23 @@ cleanup:
 	return NULL;
 }
 
-struct tn_expr *tn_parser_negate (struct tn_token **tok)
+struct tn_expr *tn_parser_uop (struct tn_token **tok)
 {
-	struct tn_expr *ret = tn_parser_alloc ();
+	struct tn_token *op;
+	struct tn_expr *ret;
 
-	ret->type = EXPR_UOP;
-	ret->data.uop.expr = tn_parser_factor (tok);
-	ret->data.uop.op = TOK_SUB;
+	op = *tok;
+	if (accept (TOK_SUB) || accept (TOK_EXCL)) {
+		ret = tn_parser_alloc ();
 
-	return ret->data.uop.expr ? ret : NULL;
+		ret->type = EXPR_UOP;
+		ret->data.uop.expr = tn_parser_uop (tok);
+		ret->data.uop.op = op->type;
+
+		return ret->data.uop.expr ? ret : NULL;
+	}
+	else
+		return tn_parser_factor (tok);
 }
 
 struct tn_expr *tn_parser_term (struct tn_token **tok)
@@ -228,14 +233,14 @@ struct tn_expr *tn_parser_term (struct tn_token **tok)
 	struct tn_token *op;
 	struct tn_expr *new, *ret;
 
-	ret = tn_parser_factor (tok);
+	ret = tn_parser_uop (tok);
 
 	while ((op = *tok) && (accept (TOK_MUL) || accept (TOK_DIV) || accept (TOK_MOD))) {
 		new = tn_parser_alloc ();
 
 		new->type = EXPR_BOP;
 		new->data.bop.left = ret;
-		new->data.bop.right = tn_parser_factor (tok);
+		new->data.bop.right = tn_parser_uop (tok);
 		new->data.bop.op = op->type;
 
 		ret = new;
@@ -375,9 +380,19 @@ struct tn_expr *tn_parser_fn (struct tn_token **tok)
 		fn->args_max = 0;
 	}
 
+	fn->varargs = 0;
+
 	prev = *tok;
-	while (!accept (TOK_RPAR) && accept (TOK_IDENT)) { // build argument list
-		// check if we need to resize the array
+	while (!accept (TOK_RPAR) && (accept (TOK_IDENT) || accept (TOK_LBRK))) { // build argument list
+		if (prev->type == TOK_LBRK) {
+			fn->varargs = 1;
+			prev = *tok;
+			if (!accept (TOK_IDENT) || !accept (TOK_RBRK)) {
+				error ("expected variadic argument\n");
+				tn_parser_free (ret);
+				return NULL;
+			}
+		}
 		array_add (fn->args, prev->data.s);
 		accept (TOK_COMM);
 		prev = *tok;
