@@ -195,7 +195,11 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 
 			tmp->next = new->data.call.args;
 			new->data.call.args = tmp;
-			accept (TOK_COMM);
+
+			if (!accept (TOK_COMM) && !peek (TOK_RPAR)) {
+				error ("expected argument list\n");
+				goto cleanup;
+			}
 		}
 
 		ret = new;
@@ -393,8 +397,15 @@ struct tn_expr *tn_parser_fn (struct tn_token **tok)
 				return NULL;
 			}
 		}
+
 		array_add (fn->args, prev->data.s);
-		accept (TOK_COMM);
+
+		if (!accept (TOK_COMM) && !peek (TOK_RPAR)) {
+			error ("expected argument list\n");
+			tn_parser_free (ret);
+			return NULL;
+		}
+
 		prev = *tok;
 	}
 
@@ -453,7 +464,7 @@ struct tn_expr *tn_parser_body (struct tn_token **tok)
 
 	ret = last = NULL;
 
-	while (*tok && !accept (TOK_SCOL)) {
+	while (*tok && !accept (TOK_SCOL) && !peek (TOK_COMM)) {
 		if (accept (TOK_PRNT)) {
 			new = tn_parser_alloc ();
 

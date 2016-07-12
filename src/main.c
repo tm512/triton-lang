@@ -25,7 +25,7 @@ int main (int argc, char **argv)
 	// ugly but temporary:
 	{
 		tok = bak = tn_lexer_tokenize ("fn map(f,l) l ? f(l:h) :: map(f,l:t) nil ;"
-		                               "fn seq(s,e) s < e ? s :: seq(s+1,e) e ;"
+		                               "fn range(s,e) s < e ? s :: range(s+1,e) e ;"
 		                               "nil", &last);	
 	}
 

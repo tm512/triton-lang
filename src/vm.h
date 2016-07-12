@@ -27,13 +27,21 @@ struct tn_value {
 	uint8_t flags;
 };
 
+#define VAL(VM, TYPE, DEF) tn_vm_value (VM, TYPE, ((union tn_val_data) { DEF }))
+#define tn_int(VM, I) VAL (VM, VAL_INT, .i = I)
+#define tn_double(VM, D) VAL (VM, VAL_DBL, .d = D)
+#define tn_string(VM, S) VAL (VM, VAL_STR, .s = S)
+#define tn_pair(VM, A, B) tn_vm_value (VM, VAL_PAIR, ((union tn_val_data) { .pair = { A, B } }))
+#define tn_closure(VM, CL) VAL (VM, VAL_CLSR, .cl = CL)
+#define tn_cfun(VM, FN) VAL (VM, VAL_CFUN, .cfun = FN)
+
 struct tn_bst;
 struct tn_chunk {
 	uint8_t code[512];
 	uint32_t pc;
 	array_def (subch, struct tn_chunk*);
 
-	// compiler specific stuff, the struct tn_vm doesn't do anything with this
+	// compiler specific stuff, the VM doesn't do anything with this
 	const char *name;
 	struct tn_bst *vartree;
 	struct tn_chunk *next;

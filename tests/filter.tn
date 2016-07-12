@@ -1,0 +1,8 @@
+fn filter (f, lst)
+  lst ?
+    f (lst:h) ?
+      lst:h :: filter (f, lst:t)
+      filter (f, lst:t)
+    nil ;
+
+print filter (fn (n) n % 2 == 0, range (1, 20))

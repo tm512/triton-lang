@@ -32,7 +32,8 @@
 #define OP_JNZ	0x21
 #define OP_JZ	0x22
 #define OP_CALL	0x23
-#define OP_RET	0x24
+#define OP_TCAL	0x24
+#define OP_RET	0x25
 #define OP_HEAD	0x30 // list instructions
 #define OP_TAIL	0x31
 #define OP_LSTS	0x32

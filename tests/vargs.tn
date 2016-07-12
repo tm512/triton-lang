@@ -17,5 +17,5 @@ fn map (f, [lists])
 
 fn add (a, b) a + b ;
 fn sq (n) n * n ;
-print map (add, seq (1, 5), seq (2, 6))
-print map (sq, seq (1, 5))
+print map (add, range (1, 5), range (2, 6))
+print map (sq, range (1, 5))

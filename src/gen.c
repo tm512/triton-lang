@@ -137,7 +137,7 @@ static uint8_t bop_opcodes[] = {
 #undef op
 
 static int nfunc = 0;
-static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
+static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 {
 	uint32_t i, id;
 	struct tn_expr *it;
@@ -172,7 +172,7 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 		case EXPR_ASSN:
 			id = tn_gen_id_num (ch, ex->data.assn.name, 1);
 
-			tn_gen_expr (ch, ex->data.assn.expr);
+			tn_gen_expr (ch, ex->data.assn.expr, 0);
 			tn_gen_emit8 (ch, OP_SET);
 			tn_gen_emit32 (ch, id);
 			printf ("%.5s %s (%i)\n", "SET", ex->data.assn.name, id);
@@ -192,7 +192,7 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 			break;
 		}
 		case EXPR_UOP:
-			tn_gen_expr (ch, ex->data.uop.expr);
+			tn_gen_expr (ch, ex->data.uop.expr, 0);
 			tn_gen_emit8 (ch, uop_opcodes[ex->data.uop.op]);
 			break;
 		case EXPR_BOP:
@@ -200,13 +200,13 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 			if (ex->data.bop.op == TOK_ANDL || ex->data.bop.op == TOK_ORL) {
 				uint32_t j1, j2, out;
 
-				tn_gen_expr (ch, ex->data.bop.left);
+				tn_gen_expr (ch, ex->data.bop.left, 0);
 				tn_gen_emit8 (ch, ex->data.bop.op == TOK_ANDL ? OP_JZ : OP_JNZ);
 				j1 = ch->pc;
 				tn_gen_emit32 (ch, 0);
 				printf ("%s\n", ex->data.bop.op == TOK_ANDL ? "JZ   .FALSE" : "JNZ  .TRUE");
 
-				tn_gen_expr (ch, ex->data.bop.right);
+				tn_gen_expr (ch, ex->data.bop.right, 0);
 				tn_gen_emit8 (ch, ex->data.bop.op == TOK_ANDL ? OP_JZ : OP_JNZ);
 				j2 = ch->pc;
 				tn_gen_emit32 (ch, 0);
@@ -235,8 +235,8 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 				printf (".OUT (%x)\n", ch->pc);
 			}
 			else {
-				tn_gen_expr (ch, ex->data.bop.left);
-				tn_gen_expr (ch, ex->data.bop.right);
+				tn_gen_expr (ch, ex->data.bop.left, 0);
+				tn_gen_expr (ch, ex->data.bop.right, 0);
 
 				tn_gen_emit8 (ch, bop_opcodes[ex->data.bop.op]);
 				printf ("%.5s\n", bops[bop_opcodes[ex->data.bop.op] - OP_ADD]);
@@ -244,17 +244,18 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 			break;
 		case EXPR_CALL: {
 			int nargs = 0;
+			struct tn_expr_data_fn *fn;
 
 			it = ex->data.call.args;
 
 			while (it) {
-				tn_gen_expr (ch, it);
+				tn_gen_expr (ch, it, 0);
 				nargs++;
 				it = it->next;
 			}
 
-			tn_gen_expr (ch, ex->data.call.fn);
-			tn_gen_emit8 (ch, OP_CALL);
+			tn_gen_expr (ch, ex->data.call.fn, 0);
+			tn_gen_emit8 (ch, final ? OP_TCAL : OP_CALL);
 			tn_gen_emit32 (ch, nargs);
 			printf ("CALL %i\n", nargs);
 			break;
@@ -262,13 +263,13 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 		case EXPR_IF: {
 			uint32_t tskip, fskip; // we need to save positions for jump addresses
 
-			tn_gen_expr (ch, ex->data.ifs.cond);
+			tn_gen_expr (ch, ex->data.ifs.cond, 0);
 			tn_gen_emit8 (ch, OP_JZ);
 			tskip = ch->pc;
 			tn_gen_emit32 (ch, 0);
 			printf ("%.5s .FALSE\n", "JZ");
 
-			tn_gen_expr (ch, ex->data.ifs.t);
+			tn_gen_expr (ch, ex->data.ifs.t, final); // pass through "final" here
 			tn_gen_emit8 (ch, OP_JMP);
 			fskip = ch->pc;
 			tn_gen_emit32 (ch, 0);
@@ -276,7 +277,7 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 			printf (".FALSE (%x)\n", ch->pc);
 			tn_gen_emitpos (ch, ch->pc, tskip); // we jump here on false
 
-			tn_gen_expr (ch, ex->data.ifs.f);
+			tn_gen_expr (ch, ex->data.ifs.f, final);
 			printf (".SKIP (%x)\n", ch->pc);
 			tn_gen_emitpos (ch, ch->pc, fskip); // we jump here after true
 			break;
@@ -284,7 +285,7 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 		case EXPR_ACCS: {
 			const char *item;
 
-			tn_gen_expr (ch, ex->data.accs.expr);
+			tn_gen_expr (ch, ex->data.accs.expr, 0);
 			if (ex->data.accs.item->type == EXPR_IDENT) {
 				item = ex->data.accs.item->data.s;
 				if (item[0] == 'h') {
@@ -299,7 +300,7 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex)
 			break;
 		}
 		case EXPR_PRNT:
-			tn_gen_expr (ch, ex->data.print);
+			tn_gen_expr (ch, ex->data.print, 0);
 			tn_gen_emit8 (ch, OP_PRNT);
 			printf ("PRNT\n");
 			break;
@@ -335,7 +336,7 @@ struct tn_chunk *tn_gen_compile (struct tn_expr *ex, struct tn_expr_data_fn *fn,
 	}
 
 	while (it) {
-		tn_gen_expr (ret, it);
+		tn_gen_expr (ret, it, !it->next);
 		it = it->next;
 
 		if (it) { // discard this value, we don't need it on the stack
