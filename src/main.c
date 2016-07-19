@@ -6,6 +6,7 @@
 #include "gen.h"
 #include "vm.h"
 
+int tn_builtin_init (struct tn_vm *vm);
 int main (int argc, char **argv)
 {
 	int repl = 0;
@@ -28,6 +29,8 @@ int main (int argc, char **argv)
 		                               "fn range(s,e) s < e ? s :: range(s+1,e) e ;"
 		                               "nil", &last);	
 	}
+
+	tn_builtin_init (vm);
 
 	if (argc > 1)
 		last->next = tn_lexer_tokenize_file (fopen (argv[1], "r"));
@@ -57,7 +60,15 @@ int main (int argc, char **argv)
 				continue;
 			}
 
+			tn_disasm (code);
 			tn_vm_dispatch (vm, code, NULL, sc, 0);
+
+			if (vm->error) {
+				vm->error = 0;
+				tok = NULL;
+				tn_lexer_free_tokens (bak);
+				continue;
+			}
 
 			if (repl) {
 				tn_vm_print (vm->stack[--vm->sp]);

@@ -8,24 +8,9 @@
 #include "opcode.h"
 #include "parser.h"
 #include "gen.h"
+#include "value.h"
 #include "vm.h"
 #include "gc.h"
-
-struct tn_value nil = { VAL_NIL, ((union tn_val_data) { 0 }) };
-struct tn_value lststart = { VAL_NIL, ((union tn_val_data) { 0 }) };
-
-static struct tn_value *tn_vm_value (struct tn_vm *vm, enum tn_val_type type, union tn_val_data data)
-{
-	struct tn_value *ret = tn_gc_alloc (vm->gc);
-
-	if (!ret)
-		return NULL;
-
-	ret->type = type;
-	ret->data = data;
-
-	return ret;
-}
 
 static inline uint8_t tn_vm_read8 (struct tn_vm *vm)
 {
@@ -188,6 +173,10 @@ void tn_vm_print (struct tn_value *val)
 		tn_vm_push (vm, tn_double (vm, v1->data.i OP v2->data.d)); \
 	else if (v1d && v2i) \
 		tn_vm_push (vm, tn_double (vm, v1->data.d OP v2->data.i)); \
+	else { \
+		error ("non-number passed to numeric operation\n"); \
+		vm->error = 1; \
+	} \
 } \
 break
 
@@ -228,69 +217,6 @@ static struct tn_closure *tn_vm_closure (struct tn_vm *vm)
 	ret->sc = tn_vm_scope_copy (vm->sc);
 
 	return ret;
-}
-
-int tn_vm_true (struct tn_value *v)
-{
-	if (!v)
-		return 0;
-
-	switch (v->type) {
-		case VAL_NIL: return 0;
-		case VAL_INT: return !!v->data.i;
-		case VAL_PAIR: return 1;
-		default: return 0;
-	}
-}
-
-int tn_vm_false (struct tn_value *v)
-{
-	return !tn_vm_true (v);
-}
-
-struct tn_value *tn_vm_cat (struct tn_vm *vm, struct tn_value *a, struct tn_value *b)
-{
-	char *buf;
-
-	if (a->type == VAL_STR && b->type == VAL_STR) {
-		buf = malloc (strlen (a->data.s) + strlen (b->data.s) + 1);
-		if (!buf)
-			return NULL;
-
-		sprintf (buf, "%s%s", a->data.s, b->data.s);
-		return tn_string (vm, buf);
-	}
-
-	return NULL;
-}
-
-struct tn_value *tn_vm_list_copy (struct tn_vm *vm, struct tn_value *lst)
-{
-	if (lst == &nil)
-		return &nil;
-
-	return tn_pair (vm, lst->data.pair.a, tn_vm_list_copy (vm, lst->data.pair.b));
-}
-
-// list concatenation
-struct tn_value *tn_vm_lcat (struct tn_vm *vm, struct tn_value *a, struct tn_value *b)
-{
-	if (b != &nil && b->type != VAL_PAIR)
-		b = tn_pair (vm, b, &nil);
-
-	return tn_pair (vm, a, b);
-}
-
-struct tn_value *tn_vm_lcon (struct tn_vm *vm, int n)
-{
-	struct tn_value *val;
-
-	if (n == 0)
-		return &nil;
-
-	val = tn_vm_pop (vm);
-
-	return tn_pair (vm, val, tn_vm_lcon (vm, n - 1));
 }
 
 struct tn_scope *tn_vm_scope (uint8_t keep)
@@ -336,10 +262,10 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 
 	// set up the current scope
 	if (!sc) {
-begin:
 		sc = tn_vm_scope (0);
 		if (!sc) {
 			error ("couldn't allocate a new scope\n");
+			vm->error = 1;
 			return;
 		}
 	}
@@ -351,7 +277,7 @@ begin:
 	vm->sc = sc;
 
 	// execute the chunk's code
-	while (1) {
+	while (!vm->error) {
 		//printf ("op: %x\n", ch->code[sc->pc]);
 		switch (ch->code[sc->pc++]) {
 			case OP_NOP: break;
@@ -373,22 +299,22 @@ begin:
 			case OP_ANDL: // eventually use a boolean type for these, maybe
 				v2 = tn_vm_pop (vm);
 				v1 = tn_vm_pop (vm);
-				tn_vm_push (vm, tn_int (vm, tn_vm_true (v1) && tn_vm_true (v2)));
+				tn_vm_push (vm, tn_int (vm, tn_value_true (v1) && tn_value_true (v2)));
 				break;
 			case OP_ORL:
 				v2 = tn_vm_pop (vm);
 				v1 = tn_vm_pop (vm);
-				tn_vm_push (vm, tn_int (vm, tn_vm_true (v1) || tn_vm_true (v2)));
+				tn_vm_push (vm, tn_int (vm, tn_value_true (v1) || tn_value_true (v2)));
 				break;
 			case OP_CAT:
 				v2 = tn_vm_pop (vm);
 				v1 = tn_vm_pop (vm);
-				tn_vm_push (vm, tn_vm_cat (vm, v1, v2));
+				tn_vm_push (vm, tn_value_cat (vm, v1, v2));
 				break;
 			case OP_LCAT:
 				v2 = tn_vm_pop (vm);
 				v1 = tn_vm_pop (vm);
-				tn_vm_push (vm, tn_vm_lcat (vm, v1, v2));
+				tn_vm_push (vm, tn_value_lcat (vm, v1, v2));
 				break;
 			case OP_PSHI:
 				tn_vm_push (vm, tn_int (vm, tn_vm_read32 (vm)));
@@ -430,11 +356,17 @@ begin:
 			case OP_NIL:
 				tn_vm_push (vm, &nil);
 				break;
-			case OP_GLOB:
-				v1 = tn_bst_find (vm->globals, tn_vm_readstring (vm));
-				v1 = v1 ? v1 : &nil;
-				tn_vm_push (vm, v1);
+			case OP_GLOB: {
+				char *name = tn_vm_readstring (vm);
+				v1 = tn_bst_find (vm->globals, name);
+				if (v1)
+					tn_vm_push (vm, v1);
+				else {
+					error ("unbound variable %s\n", name);
+					vm->error = 1;
+				}
 				break;
+			}
 			case OP_ARGS: {
 				int i, op_nargs;
 				uint8_t varargs = tn_vm_read8 (vm);
@@ -444,7 +376,7 @@ begin:
 				for (i = 1; i <= op_nargs; i++) {
 					if (varargs && i == op_nargs) {
 						if (op_nargs <= nargs)
-							tn_vm_push (vm, tn_vm_lcon (vm, nargs - op_nargs + 1));
+							tn_vm_push (vm, tn_value_lcon (vm, nargs - op_nargs + 1));
 						else
 							tn_vm_push (vm, &nil);
 					}
@@ -458,14 +390,14 @@ begin:
 				break;
 			case OP_JNZ:
 				v1 = tn_vm_pop (vm);
-				if (tn_vm_true (v1))
+				if (tn_value_true (v1))
 					vm->sc->pc = tn_vm_read32 (vm);
 				else
 					vm->sc->pc += 4;
 				break;
 			case OP_JZ:
 				v1 = tn_vm_pop (vm);
-				if (tn_vm_false (v1))
+				if (tn_value_false (v1))
 					vm->sc->pc = tn_vm_read32 (vm);
 				else
 					vm->sc->pc += 4;
@@ -512,7 +444,7 @@ begin:
 				break;
 			case OP_NOT:
 				v1 = tn_vm_pop (vm);
-				tn_vm_push (vm, tn_int (vm, tn_vm_false (v1)));
+				tn_vm_push (vm, tn_int (vm, tn_value_false (v1)));
 				break;
 			case OP_PRNT:
 				v1 = tn_vm_pop (vm);
@@ -521,49 +453,14 @@ begin:
 				tn_vm_push (vm, &nil);
 				break;
 			case OP_RET:
-			case OP_END:
-				tn_vm_free_scope (vm->sc);
-				vm->sc = NULL;
-				return;
+				goto out;
 			default: break;
 		}
 	}
-}
-
-int tn_vm_ldecon (struct tn_vm *vm, struct tn_value *lst)
-{
-	int ret = 0;
-
-	if (lst == &nil)
-		return 0;
-
-	ret = tn_vm_ldecon (vm, lst->data.pair.b);
-	tn_vm_push (vm, lst->data.pair.a);
-	ret++;
-
-	return ret;
-}
-
-void tn_apply (struct tn_vm *vm, int n)
-{
-	// fn (1, 2, 3) == 3 2 1 fn call
-	// apply (fn, [1 2 3]) == [1 2 3] fn apply call
-	int nargs;
-	struct tn_value *fn, *args, *tmp;
-	struct tn_scope *sc;
-
-	fn = tn_vm_pop (vm);
-	args = tn_vm_pop (vm);
-
-	//printf ("fn = "); tn_vm_print (fn);
-	//printf ("\nargs = "); tn_vm_print (args); printf ("\n");
-
-	// arguments are passed in via a list, so we recursively push every element of it
-	nargs = tn_vm_ldecon (vm, args);
-
-	sc = vm->sc;
-	tn_vm_dispatch (vm, fn->data.cl->ch, fn, NULL, nargs);
-	vm->sc = sc;
+out:
+	tn_vm_free_scope (vm->sc);
+	vm->sc = NULL;
+	return;
 }
 
 void tn_vm_setglobal (struct tn_vm *vm, const char *name, struct tn_value *val)
@@ -574,6 +471,7 @@ void tn_vm_setglobal (struct tn_vm *vm, const char *name, struct tn_value *val)
 		error ("failed to set global\n");
 }
 
+void tn_apply (struct tn_vm *vm, int n);
 struct tn_vm *tn_vm_init (uint32_t init_ss)
 {
 	struct tn_vm *ret = malloc (sizeof (*ret));
@@ -590,12 +488,11 @@ struct tn_vm *tn_vm_init (uint32_t init_ss)
 
 	ret->sp = ret->sb = 0;
 	ret->ss = init_ss;
+	ret->error = 0;
 
 	ret->sc = NULL;
 
 	ret->gc = tn_gc_init (ret, sizeof (struct tn_value) * 10);
-
-	tn_vm_setglobal (ret, "apply", tn_cfun (ret, tn_apply));
 
 	return ret;
 }

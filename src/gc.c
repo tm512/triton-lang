@@ -3,6 +3,7 @@
 
 #include "error.h"
 #include "bst.h"
+#include "value.h"
 #include "vm.h"
 #include "gc.h"
 
@@ -150,6 +151,8 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 
 				free (vit->data.cl);
 			}
+			else if (vit->type == VAL_STR)
+				free (vit->data.s);
 
 			next = vit->next;
 			vit->next = gc->free;
