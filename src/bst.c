@@ -121,7 +121,7 @@ struct tn_bst *tn_bst_delete (struct tn_bst *node, const char *key, struct tn_bs
 	return node;
 }
 
-void *tn_bst_find (struct tn_bst *node, const char *key)
+void *tn_bst_find_ref (struct tn_bst *node, const char *key)
 {
 	int cmp;
 
@@ -131,11 +131,17 @@ void *tn_bst_find (struct tn_bst *node, const char *key)
 	cmp = strcmp (key, node->key);
 
 	if (cmp > 0)
-		return tn_bst_find (node->right, key);
+		return tn_bst_find_ref (node->right, key);
 	else if (cmp < 0)
-		return tn_bst_find (node->left, key);
+		return tn_bst_find_ref (node->left, key);
 
-	return node->val;
+	return &node->val;
+}
+
+void *tn_bst_find (struct tn_bst *node, const char *key)
+{
+	void **ref = tn_bst_find_ref (node, key);
+	return ref ? *ref : NULL;
 }
 
 // some debug stuff:

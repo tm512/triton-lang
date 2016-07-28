@@ -1,0 +1,10 @@
+# this is a comment
+#- and we have
+   block comments
+   as well -#
+
+#- and even...
+   #- ...nested block
+      comments -# -#
+
+print "wow"

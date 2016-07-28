@@ -116,7 +116,10 @@ struct tn_value *tn_vm_pop (struct tn_vm *vm)
 		return NULL;
 	}
 
-	return vm->stack[--vm->sp];
+	if (vm->stack[--vm->sp]->type == VAL_REF)
+		return *vm->stack[vm->sp]->data.ref;
+
+	return vm->stack[vm->sp];
 }
 
 void tn_vm_print (struct tn_value *val)
@@ -210,11 +213,19 @@ static struct tn_closure *tn_vm_closure (struct tn_vm *vm)
 	struct tn_scope *it;
 	uint16_t i, nargs;
 
-	if (!ret)
+	if (!ret) {
+		error ("malloc failed\n");
+		vm->error = 1;
 		return NULL;
+	}
 
 	ret->ch = vm->sc->ch->subch[tn_vm_read16 (vm)];
 	ret->sc = tn_vm_scope_copy (vm->sc);
+
+	if (!ret->sc) {
+		vm->error = 1;
+		return NULL;
+	}
 
 	return ret;
 }
@@ -290,6 +301,10 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				v1 = tn_vm_pop (vm);
 				if (v1->type == VAL_INT && v2->type == VAL_INT)
 					tn_vm_push (vm, tn_int (vm, v1->data.i % v2->data.i));
+				else {
+					error ("non-int passed to modulo\n");
+					vm->error = 1;
+				}
 				break;
 			case OP_EQ: numop (==);
 			case OP_LT: numop (<);
@@ -338,14 +353,9 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 			case OP_SET:
 				array_add_at (sc->vars->arr, vm->stack[vm->sp - 1], tn_vm_read32 (vm) - 1);
 				break;
-			case OP_POP: {
-				uint32_t id = tn_vm_read32 (vm);
-				if (id > 0)
-					array_add_at (sc->vars->arr, tn_vm_pop (vm), id - 1);
-				else
-					tn_vm_pop (vm);
+			case OP_DROP:
+				tn_vm_pop (vm);
 				break;
-			}
 			case OP_CLSR:
 				tn_vm_push (vm, tn_closure (vm, tn_vm_closure (vm)));
 				break;
@@ -357,10 +367,12 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				tn_vm_push (vm, &nil);
 				break;
 			case OP_GLOB: {
+				// with globals, we push a reference to a value, tn_vm_pop will deref it
 				char *name = tn_vm_readstring (vm);
-				v1 = tn_bst_find (vm->globals, name);
-				if (v1)
-					tn_vm_push (vm, v1);
+				struct tn_value **ref = tn_bst_find_ref (vm->globals, name);
+
+				if (ref)
+					tn_vm_push (vm, tn_vref (vm, ref));
 				else {
 					error ("unbound variable %s\n", name);
 					vm->error = 1;
@@ -422,7 +434,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				break;
 			case OP_HEAD:
 				v1 = tn_vm_pop (vm);
-				//printf ("type: %i\n", v1->type);
+
 				if (v1->type == VAL_PAIR)
 					tn_vm_push (vm, v1->data.pair.a);
 				else
@@ -430,6 +442,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				break;
 			case OP_TAIL:
 				v1 = tn_vm_pop (vm);
+
 				if (v1->type == VAL_PAIR)
 					tn_vm_push (vm, v1->data.pair.b);
 				else
@@ -467,8 +480,10 @@ void tn_vm_setglobal (struct tn_vm *vm, const char *name, struct tn_value *val)
 {
 	vm->globals = tn_bst_insert (vm->globals, name, val);
 
-	if (!vm->globals)
+	if (!vm->globals) {
 		error ("failed to set global\n");
+		vm->error = 1;
+	}
 }
 
 void tn_apply (struct tn_vm *vm, int n);
@@ -493,6 +508,11 @@ struct tn_vm *tn_vm_init (uint32_t init_ss)
 	ret->sc = NULL;
 
 	ret->gc = tn_gc_init (ret, sizeof (struct tn_value) * 10);
+
+	if (!ret->gc) {
+		free (ret);
+		return NULL;
+	}
 
 	return ret;
 }

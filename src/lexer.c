@@ -153,6 +153,30 @@ static int tn_lexer_string (char **src, struct tn_token *ret)
 	return 0;
 }
 
+int tn_lexer_comment (char **src)
+{
+	int block;
+	char *c = *src + 1;
+
+	// block comment?
+	block = *(c++) == '-';
+
+	while (*c) {
+		if (*c == '#' && !tn_lexer_comment (&c))
+			return 0;
+
+		// check for comment termination
+		if ((block && *c == '-' && *(c + 1) == '#') || (!block && *c == '\n')) {
+			*src = c + (block ? 2 : 1);
+			return 1;
+		}
+
+		c++;
+	}
+
+	return !block; // only non-block comments can be terminated by a null character
+}
+
 static struct tn_token *tn_lexer_token (char **src)
 {
 	char *c;
@@ -182,6 +206,7 @@ static struct tn_token *tn_lexer_token (char **src)
 	// see if the token is a builtin
 	for (i = 0; builtins[i].str; i++) {
 		len = strlen (builtins[i].str);
+
 		if (!strncmp (c, builtins[i].str, len)) {
 			ret->type = builtins[i].type;
 			ret->data.s = builtins[i].str;
@@ -190,13 +215,17 @@ static struct tn_token *tn_lexer_token (char **src)
 		}
 	}
 
-	// the last option is that this is an identifier
+	// see if the token is an identifier
 	if ((isalpha (*c) || *c == '_') && !tn_lexer_identifier (src, ret))
 		return ret;
 
-	error ("unrecognized token at: %s\n", c);
-
 	free (ret);
+
+	// last option is that this is a comment
+	if (*c == '#' && tn_lexer_comment (src))
+		return tn_lexer_token (src); // call this again to get the next token
+
+	error ("unrecognized token at: %s\n", c);
 	return NULL;
 }
 
@@ -221,24 +250,36 @@ struct tn_token *tn_lexer_tokenize (char *src, struct tn_token **last)
 
 struct tn_token *tn_lexer_tokenize_file (FILE *f)
 {
+	int len = 1;
+	char *src, *bak;
 	char line[4096];
-	struct tn_token *ret, *last, *tmp;
 
-	ret = last = tmp = NULL;
+	src = malloc (4096);
 
-	// tokenize first line of file
-	while (!last) {
-		fgets (line, 4096, f);
-		ret = tn_lexer_tokenize (line, &last);
+	if (!src) {
+		error ("malloc failed");
+		return NULL;
 	}
 
-	// keep tokenizing lines, appending to the last token from the last invokation
+	src[0] = '\0';
+
+	// read the file line by line, 
 	while (fgets (line, 4096, f)) {
-		last->next = tn_lexer_tokenize (line, &tmp);
-		last = tmp ? tmp : last;
+		len += strlen (line);
+
+		bak = src;
+		src = realloc (src, len);
+
+		if (!src) {
+			error ("realloc failed\n");
+			free (bak);
+			return NULL;
+		}
+
+		strcat (src, line);
 	}
 
-	return ret;
+	return tn_lexer_tokenize (src, NULL);
 }
 
 void tn_lexer_free_tokens (struct tn_token *tok)
@@ -246,6 +287,7 @@ void tn_lexer_free_tokens (struct tn_token *tok)
 	struct tn_token *it, *next = tok;
 	while ((it = next)) {
 		next = it->next;
+
 		if (it->type == TOK_STRING)
 			free ((void*)it->data.s);
 		free (it);

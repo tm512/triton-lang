@@ -139,10 +139,6 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 	uint32_t i, id;
 	struct tn_expr *it;
 	struct tn_chunk *sub;
-	static const char *bops[] = { "ADD", "SUB", "MUL", "DIV", "MOD",
-	                              "EQ", "NEQ", "LT", "LTE", "GT",
-	                              "GTE", "ANDL", "ORL", "CAT",
-	                              "LCAT" };
 
 	switch (ex->type) {
 		case EXPR_NIL:
@@ -311,7 +307,7 @@ struct tn_chunk *tn_gen_compile (struct tn_expr *ex, struct tn_expr_data_fn *fn,
 		it = it->next;
 
 		if (it) { // discard this value, we don't need it on the stack
-			tn_gen_emit8 (ret, OP_POP);
+			tn_gen_emit8 (ret, OP_DROP);
 			tn_gen_emit32 (ret, 0);
 		}
 	}

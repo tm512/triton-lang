@@ -8,15 +8,17 @@
 #include "gc.h"
 #include "vm.h"
 
-struct tn_value nil = { VAL_NIL, ((union tn_val_data) { 0 }) };
-struct tn_value lststart = { VAL_NIL, ((union tn_val_data) { 0 }) };
+struct tn_value nil = { VAL_NIL, { 0 } };
+struct tn_value lststart = { VAL_NIL, { 0 } };
 
 struct tn_value *tn_value_new (struct tn_vm *vm, enum tn_val_type type, union tn_val_data data)
 {
 	struct tn_value *ret = tn_gc_alloc (vm->gc);
 
-	if (!ret)
+	if (!ret) {
+		vm->error = 1;
 		return NULL;
+	}
 
 	ret->type = type;
 	ret->data = data;
@@ -48,8 +50,11 @@ struct tn_value *tn_value_cat (struct tn_vm *vm, struct tn_value *a, struct tn_v
 
 	if (a->type == VAL_STR && b->type == VAL_STR) {
 		buf = malloc (strlen (a->data.s) + strlen (b->data.s) + 1);
-		if (!buf)
+		if (!buf) {
+			error ("malloc failed\n");
+			vm->error = 1;
 			return NULL;
+		}
 
 		sprintf (buf, "%s%s", a->data.s, b->data.s);
 		return tn_string (vm, buf);

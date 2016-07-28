@@ -28,6 +28,7 @@ static void tn_builtin_apply (struct tn_vm *vm, int n)
 	
 	if (n != 2 || tn_value_get_args (vm, "cl", &fn, &args)) {
 		error ("insufficient arguments to apply\n");
+		tn_vm_push (vm, &nil);
 		return;
 	}
 

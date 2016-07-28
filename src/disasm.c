@@ -38,7 +38,7 @@ static struct tn_disasm_opinfo {
 	[OP_PSHS] =	{ "PSHS",	{ OA_STR, 0 } },
 	[OP_PSHV] =	{ "PSHV",	{ OA_16, OA_32, 0 } },
 	[OP_SET] =	{ "SET",	{ OA_32, 0 } },
-	[OP_POP] =	{ "POP",	{ OA_32, 0 } },
+	[OP_DROP] =	{ "DROP",	{ OA_32, 0 } },
 	[OP_CLSR] =	{ "CLSR",	{ OA_16, 0 } },
 	[OP_SELF] =	{ "SELF",	{ 0 } },
 	[OP_NIL] =	{ "NIL",	{ 0 } },

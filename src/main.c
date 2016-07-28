@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 
 #include "error.h"
 #include "lexer.h"
@@ -34,6 +35,8 @@ int main (int argc, char **argv)
 
 	if (argc > 1)
 		last->next = tn_lexer_tokenize_file (fopen (argv[1], "r"));
+	else if (!isatty (fileno (stdin)))
+		last->next = tn_lexer_tokenize_file (stdin);
 	else {
 		printf ("triton " GITVER "\n\n");
 		repl = 1;
@@ -60,7 +63,7 @@ int main (int argc, char **argv)
 				continue;
 			}
 
-			tn_disasm (code);
+		//	tn_disasm (code);
 			tn_vm_dispatch (vm, code, NULL, sc, 0);
 
 			if (vm->error) {

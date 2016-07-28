@@ -13,6 +13,7 @@ struct tn_bst {
 struct tn_bst *tn_bst_insert (struct tn_bst *node, const char *key, void *val);
 struct tn_bst *tn_bst_merge (struct tn_bst *a, struct tn_bst *b);
 struct tn_bst *tn_bst_delete (struct tn_bst *node, const char *key, struct tn_bst **rem);
+void *tn_bst_find_ref (struct tn_bst *node, const char *key);
 void *tn_bst_find (struct tn_bst *node, const char *key);
 
 int tn_bst_depth (struct tn_bst *node);
