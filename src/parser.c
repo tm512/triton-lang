@@ -65,7 +65,8 @@ void tn_parser_free (struct tn_expr *expr)
 			tn_parser_free (expr->data.accs.item);
 			break;
 		case EXPR_PRNT:
-			tn_parser_free (expr->data.print);
+		case EXPR_DO:
+			tn_parser_free (expr->data.expr);
 			break;
 		default: break;
 	}
@@ -138,6 +139,15 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 		else {
 			ret->type = EXPR_IDENT;
 			ret->data.id = prev->data.s;
+		}
+	}
+	else if (accept (TOK_DO)) {
+		ret->type = EXPR_DO;
+		ret->data.expr = tn_parser_body (tok);
+
+		if (!ret->data.expr) {
+			error ("expected body after \"do\"\n");
+			return NULL;
 		}
 	}
 	else if (accept (TOK_INT)) {
@@ -464,12 +474,12 @@ struct tn_expr *tn_parser_body (struct tn_token **tok)
 
 	ret = last = NULL;
 
-	while (*tok && !accept (TOK_SCOL) && !peek (TOK_COMM)) {
+	while (*tok && !accept (TOK_SCOL) && !peek (TOK_COMM) && !peek (TOK_RPAR)) {
 		if (accept (TOK_PRNT)) {
 			new = tn_parser_alloc ();
 
 			new->type = EXPR_PRNT;
-			new->data.print = tn_parser_if (tok);
+			new->data.expr = tn_parser_if (tok);
 		}
 		else
 			new = tn_parser_if (tok);

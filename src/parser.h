@@ -7,7 +7,7 @@ enum tn_expr_type {
 	EXPR_NIL, EXPR_INT, EXPR_FLOAT, EXPR_STRING,
 	EXPR_IDENT, EXPR_ASSN, EXPR_FN, EXPR_UOP,
 	EXPR_BOP, EXPR_CALL, EXPR_IF, EXPR_ACCS,
-	EXPR_PRNT
+	EXPR_PRNT, EXPR_DO
 };
 
 struct tn_expr {
@@ -18,7 +18,7 @@ struct tn_expr {
 		double d;
 		const char *s;
 		const char *id;
-		struct tn_expr *print;
+		struct tn_expr *expr;
 		struct tn_expr_data_assn {
 			const char *name;
 			struct tn_expr *expr;
