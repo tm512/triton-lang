@@ -307,6 +307,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				}
 				break;
 			case OP_EQ: numop (==);
+			case OP_NEQ: numop (!=);
 			case OP_LT: numop (<);
 			case OP_LTE: numop (<=);
 			case OP_GT: numop (>);

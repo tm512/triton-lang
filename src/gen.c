@@ -29,33 +29,37 @@ static uint32_t tn_gen_id_num (struct tn_chunk *ch, const char *name, int set)
 
 static void tn_gen_emit8 (struct tn_chunk *ch, uint8_t n)
 {
+	if (ch->pc >= ch->codelen) {
+		uint8_t *code = ch->code;
+
+		printf ("resizing code to %i\n", ch->codelen * 2);
+		ch->code = realloc (ch->code, ch->codelen *= 2);
+		if (!ch->code) {
+			error ("realloc failed\n");
+			ch->code = code; // pretend like nothing happened I guess
+			return;
+		}
+	}
+
 	ch->code[ch->pc++] = n;
 }
 
 static void tn_gen_emit16 (struct tn_chunk *ch, uint16_t n)
 {
-	ch->code[ch->pc++] = n & 0xff;
-	ch->code[ch->pc++] = (n & 0xff00) >> 8;
+	tn_gen_emit8 (ch, n & 0xff);
+	tn_gen_emit8 (ch, (n & 0xff00) >> 8);
 }
 
 static void tn_gen_emit32 (struct tn_chunk *ch, uint32_t n)
 {
-	ch->code[ch->pc++] = n & 0xff;
-	ch->code[ch->pc++] = (n & 0xff00) >> 8;
-	ch->code[ch->pc++] = (n & 0xff0000) >> 16;
-	ch->code[ch->pc++] = (n & 0xff000000) >> 24;
+	tn_gen_emit16 (ch, n & 0xffff);
+	tn_gen_emit16 (ch, (n & 0xffff0000) >> 16);
 }
 
 static void tn_gen_emit64 (struct tn_chunk *ch, uint64_t n)
 {
-	ch->code[ch->pc++] = n & 0xff;
-	ch->code[ch->pc++] = (n & 0xff00) >> 8;
-	ch->code[ch->pc++] = (n & 0xff0000) >> 16;
-	ch->code[ch->pc++] = (n & 0xff000000) >> 24;
-	ch->code[ch->pc++] = (n & 0xff00000000) >> 32;
-	ch->code[ch->pc++] = (n & 0xff0000000000) >> 40;
-	ch->code[ch->pc++] = (n & 0xff000000000000) >> 48;
-	ch->code[ch->pc++] = (n & 0xff00000000000000) >> 56;
+	tn_gen_emit32 (ch, n & 0xffffffff);
+	tn_gen_emit32 (ch, (n & 0xffffffff00000000) >> 32);
 }
 
 static void tn_gen_emitdouble (struct tn_chunk *ch, double n)
@@ -293,7 +297,13 @@ struct tn_chunk *tn_gen_compile (struct tn_expr *ex, struct tn_expr_data_fn *fn,
 	struct tn_expr *it = ex;
 
 	if (!ret)
-		return NULL;
+		goto error;
+
+	ret->codelen = 16;
+	ret->code = malloc (ret->codelen);
+
+	if (!ret->code)
+		goto error;
 
 	ret->pc = 0;
 	ret->name = fn ? fn->name : NULL;
@@ -315,12 +325,15 @@ struct tn_chunk *tn_gen_compile (struct tn_expr *ex, struct tn_expr_data_fn *fn,
 		tn_gen_expr (ret, it, !it->next);
 		it = it->next;
 
-		if (it) { // discard this value, we don't need it on the stack
+		if (it) // discard this value, we don't need it on the stack
 			tn_gen_emit8 (ret, OP_DROP);
-			tn_gen_emit32 (ret, 0);
-		}
 	}
 
 	tn_gen_emit8 (ret, OP_RET);
 	return ret;
+
+error:
+	error ("malloc failed\n");
+	free (ret);
+	return NULL;
 }

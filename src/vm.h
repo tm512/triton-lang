@@ -6,8 +6,8 @@
 
 struct tn_bst;
 struct tn_chunk {
-	uint8_t code[512];
-	uint32_t pc;
+	uint8_t *code;
+	uint32_t pc, codelen;
 	array_def (subch, struct tn_chunk*);
 
 	// compiler specific stuff, the VM doesn't do anything with this

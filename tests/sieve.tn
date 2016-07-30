@@ -1,0 +1,15 @@
+fn filter (f, lst)
+  lst ?
+    f (lst:h) ?
+      lst:h :: filter (f, lst:t)
+      filter (f, lst:t)
+    nil ;
+
+fn sieve (nums)
+  fn notmul (n)
+    n % nums:h != 0 ;
+  nums ?
+    nums:h :: sieve (filter (notmul, nums:t))
+    nil ;
+
+print sieve (range (2, 100))
