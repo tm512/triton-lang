@@ -2,8 +2,7 @@
 #define GC_H__
 
 #define GC_MARKED	1
-#define GC_NEW		2
-#define GC_PRESERVE	4
+#define GC_PRESERVE	2
 
 struct tn_gc {
 	struct tn_value *used, *free;
@@ -12,6 +11,9 @@ struct tn_gc {
 };
 
 struct tn_gc *tn_gc_init (struct tn_vm *vm, uint32_t bytes);
+void tn_gc_preserve (struct tn_value *val);
+void tn_gc_release (struct tn_value *val);
+void tn_gc_release_list (struct tn_value *lst);
 struct tn_value *tn_gc_alloc (struct tn_gc *gc);
 
 #endif

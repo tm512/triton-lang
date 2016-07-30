@@ -90,7 +90,6 @@ void tn_vm_push (struct tn_vm *vm, struct tn_value *val)
 	}
 
 	vm->stack[vm->sp++] = val;
-	val->flags &= ~GC_NEW;
 
 	if (0)
 	{

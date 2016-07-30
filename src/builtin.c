@@ -2,6 +2,7 @@
 
 #include "error.h"
 #include "value.h"
+#include "gc.h"
 #include "vm.h"
 
 static int tn_builtin_ldecon (struct tn_vm *vm, struct tn_value *lst)
@@ -26,8 +27,8 @@ static void tn_builtin_apply (struct tn_vm *vm, int n)
 	struct tn_value *fn, *args, *tmp;
 	struct tn_scope *sc;
 	
-	if (n != 2 || tn_value_get_args (vm, "cl", &fn, &args)) {
-		error ("insufficient arguments to apply\n");
+	if (n != 2 || tn_value_get_args (vm, "vl", &fn, &args)) {
+		error ("invalid arguments passed to apply\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -35,13 +36,52 @@ static void tn_builtin_apply (struct tn_vm *vm, int n)
 	// arguments are passed in via a list, so we recursively push every element of it
 	nargs = tn_builtin_ldecon (vm, args);
 
-	sc = vm->sc;
-	tn_vm_dispatch (vm, fn->data.cl->ch, fn, NULL, nargs);
-	vm->sc = sc;
+	if (fn->type == VAL_CLSR) {
+		sc = vm->sc;
+		tn_vm_dispatch (vm, fn->data.cl->ch, fn, NULL, nargs);
+		vm->sc = sc;
+	}
+	else if (fn->type == VAL_CFUN)
+		fn->data.cfun (vm, nargs);
+	else {
+		error ("non-function passed to apply\n");
+		tn_vm_push (vm, &nil);
+	}
+}
+
+static void tn_builtin_range (struct tn_vm *vm, int n)
+{
+	int i, start, end, step;
+	struct tn_value *lst = &nil, *num;
+
+	if ((n == 2 && tn_value_get_args (vm, "ii", &start, &end))
+	 || (n == 3 && tn_value_get_args (vm, "iii", &start, &end, &step))) {
+		error ("invalid arguments passed to range\n");
+		tn_vm_push (vm, &nil);
+		return;
+	}
+
+	if (n == 2)
+		step = start < end ? 1 : -1;
+
+	end -= start % step; // start % step and end % step need to be the same
+
+	for (i = end; start < end ? i >= start : i <= start; i -= step) {
+		num = tn_int (vm, i);
+		tn_gc_preserve (num); // don't let the GC free this yet
+
+		lst = tn_pair (vm, num, lst);
+		tn_gc_preserve (lst);
+	}
+
+	tn_gc_release_list (lst); 
+	tn_vm_push (vm, lst);
 }
 
 int tn_builtin_init (struct tn_vm *vm)
 {
 	tn_vm_setglobal (vm, "apply", tn_cfun (vm, tn_builtin_apply));
+	tn_vm_setglobal (vm, "range", tn_cfun (vm, tn_builtin_range));
+
 	return 0;
 }

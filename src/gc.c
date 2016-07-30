@@ -106,8 +106,6 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 		vit = vit->next;
 	}
 
-	printf ("%i closures allocated\n", numcl);
-
 	// scan globals
 	tn_gc_globals (gc->vm->globals);
 
@@ -170,8 +168,30 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 	return gc->free;
 }
 
+void tn_gc_preserve (struct tn_value *val)
+{
+	val->flags |= GC_PRESERVE;
+}
+
+void tn_gc_release (struct tn_value *val)
+{
+	val->flags &= ~GC_PRESERVE;
+}
+
+void tn_gc_release_list (struct tn_value *lst)
+{
+	struct tn_value *it = lst;
+
+	while (it != &nil) {
+		tn_gc_release (it->data.pair.a);
+		tn_gc_release (it);
+		it = it->data.pair.b;
+	}
+}
+
 struct tn_value *tn_gc_alloc (struct tn_gc *gc)
 {
+	int i;
 	struct tn_value *ret;
 
 	if (!gc)
@@ -187,8 +207,6 @@ struct tn_value *tn_gc_alloc (struct tn_gc *gc)
 	gc->free = ret->next;
 	ret->next = gc->used;
 	gc->used = ret;
-
-	ret->flags = GC_NEW;
 
 	return ret;
 }

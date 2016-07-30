@@ -27,7 +27,6 @@ int main (int argc, char **argv)
 	// ugly but temporary:
 	{
 		tok = bak = tn_lexer_tokenize ("fn map(f,l) l ? f(l:h) :: map(f,l:t) nil ;"
-		                               "fn range(s,e) s < e ? s :: range(s+1,e) e ;"
 		                               "nil", &last);	
 	}
 
@@ -63,7 +62,7 @@ int main (int argc, char **argv)
 				continue;
 			}
 
-			tn_disasm (code);
+		//	tn_disasm (code);
 			tn_vm_dispatch (vm, code, NULL, sc, 0);
 
 			if (vm->error) {

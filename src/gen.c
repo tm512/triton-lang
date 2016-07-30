@@ -32,7 +32,6 @@ static void tn_gen_emit8 (struct tn_chunk *ch, uint8_t n)
 	if (ch->pc >= ch->codelen) {
 		uint8_t *code = ch->code;
 
-		printf ("resizing code to %i\n", ch->codelen * 2);
 		ch->code = realloc (ch->code, ch->codelen *= 2);
 		if (!ch->code) {
 			error ("realloc failed\n");
