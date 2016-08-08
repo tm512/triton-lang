@@ -150,6 +150,27 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 			return NULL;
 		}
 	}
+	else if (accept (TOK_LBRK)) {
+		ret->type = EXPR_LIST;
+		ret->data.expr = NULL;
+
+		while (!accept (TOK_RBRK)) {
+			new = tn_parser_if (tok);
+
+			if (!new) {
+				error ("expected expression in list\n");
+				goto cleanup;
+			}
+
+			new->next = ret->data.expr;
+			ret->data.expr = new;
+
+			if (!accept (TOK_COMM) && !peek (TOK_RBRK)) {
+				error ("unexpected end to list\n");
+				goto cleanup;
+			}
+		}
+	}
 	else if (accept (TOK_INT)) {
 		ret->type = EXPR_INT;
 		ret->data.i = prev->data.i;
@@ -220,7 +241,7 @@ struct tn_expr *tn_parser_call (struct tn_token **tok)
 			new->data.call.args = args;
 
 			if (!accept (TOK_COMM) && !peek (TOK_RPAR)) {
-				error ("expected argument list\n");
+				error ("unexpected end to argument list\n");
 				goto cleanup;
 			}
 		}

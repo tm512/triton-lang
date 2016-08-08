@@ -59,6 +59,11 @@ struct tn_value *tn_value_cat (struct tn_vm *vm, struct tn_value *a, struct tn_v
 		sprintf (buf, "%s%s", a->data.s, b->data.s);
 		return tn_string (vm, buf);
 	}
+	else {
+		error ("non-string passed to concatenate operator\n");
+		vm->error = 1;
+		return NULL;
+	}
 
 	return NULL;
 }
@@ -74,8 +79,18 @@ struct tn_value *tn_value_list_copy (struct tn_vm *vm, struct tn_value *lst)
 // list concatenation
 struct tn_value *tn_value_lcat (struct tn_vm *vm, struct tn_value *a, struct tn_value *b)
 {
-	if (b != &nil && b->type != VAL_PAIR)
+	struct tn_value *ret;
+
+	// to make this a proper list, we need the second element to be a pair too
+	// this requires a bit of working with the GC
+	if (b != &nil && b->type != VAL_PAIR) {
 		b = tn_pair (vm, b, &nil);
+		tn_gc_preserve (b);
+		ret = tn_pair (vm, a, b);
+		tn_gc_release (b);
+
+		return ret;
+	}
 
 	return tn_pair (vm, a, b);
 }
@@ -88,8 +103,26 @@ struct tn_value *tn_value_lcon (struct tn_vm *vm, int n)
 		return &nil;
 
 	val = tn_vm_pop (vm);
+	tn_gc_preserve (val);
+	val = tn_pair (vm, val, tn_value_lcon (vm, n - 1));
+	tn_gc_release (val->data.pair.a);
 
-	return tn_pair (vm, val, tn_value_lcon (vm, n - 1));
+	return val;
+}
+
+struct tn_value *tn_value_lste (struct tn_vm *vm)
+{
+	struct tn_value *tail, *val = tn_vm_pop (vm);
+
+	if (val == &lststart)
+		return &nil;
+
+	tn_gc_preserve (val);
+	tail = tn_value_lste (vm);
+	val = tn_pair (vm, val, tail);
+	tn_gc_preserve (val);
+
+	return val;
 }
 
 int tn_value_get_args (struct tn_vm *vm, const char *types, ...)

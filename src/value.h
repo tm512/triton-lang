@@ -42,6 +42,7 @@ int tn_value_false (struct tn_value *v);
 struct tn_value *tn_value_cat (struct tn_vm *vm, struct tn_value *a, struct tn_value *b);
 struct tn_value *tn_value_lcat (struct tn_vm *vm, struct tn_value *a, struct tn_value *b);
 struct tn_value *tn_value_lcon (struct tn_vm *vm, int n);
+struct tn_value *tn_value_lste (struct tn_vm *vm);
 int tn_value_get_args (struct tn_vm *vm, const char *types, ...);
 
 extern struct tn_value nil, lststart;

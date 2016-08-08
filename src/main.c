@@ -67,13 +67,14 @@ int main (int argc, char **argv)
 
 			if (vm->error) {
 				vm->error = 0;
+				vm->sp = 0;
 				tok = NULL;
 				tn_lexer_free_tokens (bak);
 				continue;
 			}
 
 			if (repl) {
-				tn_vm_print (vm->stack[--vm->sp]);
+				tn_vm_print (tn_vm_pop (vm));
 				printf ("\n");
 			}
 		}

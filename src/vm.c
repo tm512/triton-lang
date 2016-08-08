@@ -343,11 +343,17 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 			case OP_PSHV: {
 				struct tn_scope *s = sc;
 				uint16_t depth = tn_vm_read16 (vm);
+				int32_t i = tn_vm_read32 (vm) - 1;
 
 				while (depth--)
 					s = s->next;
 
-				tn_vm_push (vm, s->vars->arr[tn_vm_read32 (vm) - 1]);
+				if (i < s->vars->arr_num)
+					tn_vm_push (vm, s->vars->arr[i]);
+				else {
+					error ("unbound variable %i\n", i + 1);
+					vm->error = 1;
+				}
 				break;
 			}
 			case OP_SET:
@@ -447,6 +453,14 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 					tn_vm_push (vm, v1->data.pair.b);
 				else
 					tn_vm_push (vm, &nil);
+				break;
+			case OP_LSTS:
+				tn_vm_push (vm, &lststart);
+				break;
+			case OP_LSTE:
+				v1 = tn_value_lste (vm);
+				tn_vm_push (vm, v1);
+				tn_gc_release_list (v1);
 				break;
 			case OP_NEG:
 				v1 = tn_vm_pop (vm);

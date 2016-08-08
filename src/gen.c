@@ -284,6 +284,17 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 			}
 
 			break;
+		case EXPR_LIST:
+			tn_gen_emit8 (ch, OP_LSTS);
+
+			it = ex->data.expr;
+			while (it) {
+				tn_gen_expr (ch, it, 0);
+				it = it->next;
+			}
+
+			tn_gen_emit8 (ch, OP_LSTE);
+			break;
 		default: break;
 	}
 }
