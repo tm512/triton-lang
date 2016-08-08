@@ -438,22 +438,24 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				else if (v1->type == VAL_CFUN)
 					v1->data.cfun (vm, tn_vm_read32 (vm));
 				break;
-			case OP_HEAD:
+			case OP_ACCS: {
+				const char *item = tn_vm_readstring (vm);
+
 				v1 = tn_vm_pop (vm);
 
-				if (v1->type == VAL_PAIR)
-					tn_vm_push (vm, v1->data.pair.a);
-				else
-					tn_vm_push (vm, &nil);
-				break;
-			case OP_TAIL:
-				v1 = tn_vm_pop (vm);
+				if (v1->type == VAL_PAIR) {
+					if (item[0] == 'h' && item[1] == '\0')
+						tn_vm_push (vm, v1->data.pair.a);
+					else if (item[0] == 't' && item[1] == '\0')
+						tn_vm_push (vm, v1->data.pair.b);
+					else {
+						error ("invalid access to list\n");
+						vm->error = 1;
+					}
+				}
 
-				if (v1->type == VAL_PAIR)
-					tn_vm_push (vm, v1->data.pair.b);
-				else
-					tn_vm_push (vm, &nil);
 				break;
+			}
 			case OP_LSTS:
 				tn_vm_push (vm, &lststart);
 				break;

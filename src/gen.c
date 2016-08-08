@@ -258,19 +258,12 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 			tn_gen_emitpos (ch, ch->pc, fskip); // we jump here after true
 			break;
 		}
-		case EXPR_ACCS: {
-			const char *item;
-
+		case EXPR_ACCS:
 			tn_gen_expr (ch, ex->data.accs.expr, 0);
-			if (ex->data.accs.item->type == EXPR_IDENT) {
-				item = ex->data.accs.item->data.s;
-				if (item[0] == 'h')
-					tn_gen_emit8 (ch, OP_HEAD);
-				else if (item[0] == 't')
-					tn_gen_emit8 (ch, OP_TAIL);
-			}
+
+			tn_gen_emit8 (ch, OP_ACCS);
+			tn_gen_emitstring (ch, ex->data.accs.item);
 			break;
-		}
 		case EXPR_PRNT:
 			tn_gen_expr (ch, ex->data.expr, 0);
 			tn_gen_emit8 (ch, OP_PRNT);

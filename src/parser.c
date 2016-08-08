@@ -62,7 +62,6 @@ void tn_parser_free (struct tn_expr *expr)
 			break;
 		case EXPR_ACCS:
 			tn_parser_free (expr->data.accs.expr);
-			tn_parser_free (expr->data.accs.item);
 			break;
 		case EXPR_PRNT:
 		case EXPR_DO:
@@ -198,13 +197,14 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 
 		new->type = EXPR_ACCS;
 		new->data.accs.expr = ret;
-		new->data.accs.item = tn_parser_factor (tok);
 
-		if (!new->data.accs.item) {
+		prev = *tok;
+		if (!accept (TOK_IDENT)) {
 			error ("expected identifier after accessor\n");
 			goto cleanup;
 		}
 
+		new->data.accs.item = prev->data.s;
 		ret = new;
 	}
 

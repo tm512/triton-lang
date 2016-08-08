@@ -44,7 +44,8 @@ struct tn_expr {
 			struct tn_expr *cond, *t, *f;
 		} ifs;
 		struct tn_expr_data_accs {
-			struct tn_expr *expr, *item;
+			struct tn_expr *expr;
+			const char *item;
 		} accs;
 	} data;
 	struct tn_expr *next;

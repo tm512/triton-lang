@@ -34,8 +34,8 @@
 #define OP_CALL	0x23
 #define OP_TCAL	0x24
 #define OP_RET	0x25
-#define OP_HEAD	0x30 // list instructions
-#define OP_TAIL	0x31
+#define OP_ACCS	0x30 // list/array/etc instructions
+#define OP_IDX	0x31
 #define OP_LSTS	0x32
 #define OP_LSTE	0x33
 #define OP_NEG	0x40 // more operators
