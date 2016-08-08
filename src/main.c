@@ -62,7 +62,7 @@ int main (int argc, char **argv)
 				continue;
 			}
 
-		//	tn_disasm (code);
+			tn_disasm (code);
 			tn_vm_dispatch (vm, code, NULL, sc, 0);
 
 			if (vm->error) {

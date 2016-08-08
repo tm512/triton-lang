@@ -187,7 +187,20 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 		ret = new;
 	}
 
-	// function calls
+	return ret;
+
+cleanup:
+	tn_parser_free (new ? new : ret);
+	return NULL;
+}
+
+struct tn_expr *tn_parser_call (struct tn_token **tok)
+{
+	struct tn_expr *new, *ret, *args;
+
+	ret = tn_parser_factor (tok);
+	new = NULL;
+
 	while (accept (TOK_LPAR)) {
 		new = tn_parser_alloc ();
 
@@ -196,15 +209,15 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 		new->data.call.args = NULL;
 
 		while (!accept (TOK_RPAR)) { // build argument list
-			tmp = tn_parser_if (tok);
+			args = tn_parser_if (tok);
 
-			if (!tmp) {
+			if (!args) {
 				error ("expected expression in argument list\n");
 				goto cleanup;
 			}
 
-			tmp->next = new->data.call.args;
-			new->data.call.args = tmp;
+			args->next = new->data.call.args;
+			new->data.call.args = args;
 
 			if (!accept (TOK_COMM) && !peek (TOK_RPAR)) {
 				error ("expected argument list\n");
@@ -238,7 +251,7 @@ struct tn_expr *tn_parser_uop (struct tn_token **tok)
 		return ret->data.uop.expr ? ret : NULL;
 	}
 	else
-		return tn_parser_factor (tok);
+		return tn_parser_call (tok);
 }
 
 struct tn_expr *tn_parser_term (struct tn_token **tok)
