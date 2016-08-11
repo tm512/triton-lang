@@ -515,6 +515,19 @@ struct tn_expr *tn_parser_body (struct tn_token **tok)
 			new->type = EXPR_PRNT;
 			new->data.expr = tn_parser_if (tok);
 		}
+		else if (accept (TOK_IMPT)) {
+			new = tn_parser_alloc ();
+			prev = *tok;
+
+			new->type = EXPR_IMPT;
+			if (accept (TOK_STRING))
+				new->data.s = prev->data.s;
+			else {
+				error ("expected identifier after import\n");
+				tn_parser_free (ret);
+				return NULL;
+			}
+		}
 		else
 			new = tn_parser_if (tok);
 

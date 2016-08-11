@@ -155,6 +155,9 @@ void tn_vm_print (struct tn_value *val)
 		case VAL_CFUN:
 			printf ("cfun 0x%lx", (uint64_t)val->data.cfun);
 			break;
+		case VAL_SCOPE:
+			printf ("scope 0x%lx", (uint64_t)val->data.sc);
+			break;
 		default: break;
 	}
 }
@@ -425,6 +428,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 			case OP_CALL:
 				v1 = tn_vm_pop (vm);
 
+
 				if (v1->type == VAL_CLSR) {
 					if (tailcall && v1 == cl) {
 						sc->pc = 0;
@@ -464,6 +468,16 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				tn_vm_push (vm, v1);
 				tn_gc_release_list (v1);
 				break;
+			case OP_MACC: {
+				uint32_t i = tn_vm_read32 (vm) - 1;
+
+				v1 = tn_vm_pop (vm);
+
+				if (v1->type == VAL_SCOPE && i < v1->data.sc->vars->arr_num)
+					tn_vm_push (vm, v1->data.sc->vars->arr[i]);
+
+				break;
+			}
 			case OP_NEG:
 				v1 = tn_vm_pop (vm);
 				if (v1->type == VAL_INT)
@@ -475,6 +489,15 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				v1 = tn_vm_pop (vm);
 				tn_vm_push (vm, tn_int (vm, tn_value_false (v1)));
 				break;
+			case OP_IMPT: {
+				struct tn_chunk *mod = vm->sc->ch->subch[tn_vm_read16 (vm)];
+				struct tn_scope *s = tn_vm_scope (1);
+
+				tn_vm_dispatch (vm, mod, NULL, s, 0);
+				tn_vm_push (vm, tn_scope (vm, s));
+				vm->sc = sc;
+				break;
+			}
 			case OP_PRNT:
 				v1 = tn_vm_pop (vm);
 				tn_vm_print (v1);

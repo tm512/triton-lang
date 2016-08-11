@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libgen.h>
 
 #include "bst.h"
 #include "lexer.h"
@@ -15,14 +16,13 @@ static uint32_t tn_gen_id_num (struct tn_chunk *ch, const char *name, int set)
 {
 	// the BST associates void* with a key
 	// I don't want to allocate a bunch more stuff, so we're just storing the int in the pointer :/
-	uint32_t id = (uint32_t)tn_bst_find (ch->vartree, name);
+	uint32_t id = (uint32_t)tn_bst_find (ch->vars->vartree, name);
 
 	if (id || !set)
 		return id;
 	else {
-		id = (uint32_t)tn_bst_find (ch->vartree, "") + 1; // the blank key holds what the highest id is
-		ch->vartree = tn_bst_insert (ch->vartree, name, (void*)(intptr_t)id);
-		ch->vartree = tn_bst_insert (ch->vartree, "", (void*)(intptr_t)id);
+		id = ++ch->vars->maxid;
+		ch->vars->vartree = tn_bst_insert (ch->vars->vartree, name, (void*)(intptr_t)id);
 		return id;
 	}
 }
@@ -141,7 +141,6 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 {
 	uint32_t i, id;
 	struct tn_expr *it;
-	struct tn_chunk *sub;
 
 	switch (ex->type) {
 		case EXPR_NIL:
@@ -174,7 +173,6 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 
 			new = tn_gen_compile (ex->data.fn.expr, &ex->data.fn, ch, NULL);
 			array_add (ch->subch, new);
-			sub = ch->subch[ch->subch_num - 1];
 
 			tn_gen_emit8 (ch, OP_CLSR);
 			tn_gen_emit16 (ch, ch->subch_num - 1);
@@ -258,12 +256,26 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 			tn_gen_emitpos (ch, ch->pc, fskip); // we jump here after true
 			break;
 		}
-		case EXPR_ACCS:
-			tn_gen_expr (ch, ex->data.accs.expr, 0);
+		case EXPR_ACCS: {
+			struct tn_expr *aex = ex->data.accs.expr;
+			struct tn_chunk **mod; // pointer into the chunk's subch array
 
-			tn_gen_emit8 (ch, OP_ACCS);
-			tn_gen_emitstring (ch, ex->data.accs.item);
+			tn_gen_expr (ch, aex, 0);
+
+			// here we see if this is an identifier associated with a module
+			if (aex->type == EXPR_IDENT && (mod = tn_bst_find (ch->vars->modules, aex->data.s))) {
+				int16_t idx = mod - ch->subch; // mod is a pointer to an element in subch
+				uint32_t id = (uint32_t)tn_bst_find ((*mod)->vars->vartree, ex->data.accs.item);
+
+				tn_gen_emit8 (ch, OP_MACC);
+				tn_gen_emit32 (ch, id);
+			}
+			else {
+				tn_gen_emit8 (ch, OP_ACCS);
+				tn_gen_emitstring (ch, ex->data.accs.item);
+			}
 			break;
+		}
 		case EXPR_PRNT:
 			tn_gen_expr (ch, ex->data.expr, 0);
 			tn_gen_emit8 (ch, OP_PRNT);
@@ -288,12 +300,45 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 
 			tn_gen_emit8 (ch, OP_LSTE);
 			break;
+		case EXPR_IMPT: {
+			// TODO: handle this a lot better, maybe in its own file
+			char *name, *per;
+			struct tn_token *tok, *bak;
+			struct tn_expr *ast;
+			struct tn_chunk *code;
+
+			tok = bak = tn_lexer_tokenize_file (fopen (ex->data.s, "r"));
+			ast = tn_parser_body (&tok);
+			code = tn_gen_compile (ast, NULL, NULL, NULL);
+
+			tn_parser_free (ast);
+			tn_lexer_free_tokens (bak);
+
+			name = basename (ex->data.s);
+			per = strchr (name, '.');
+			if (per)
+				*per = '\0';
+
+			array_add (ch->subch, code);
+			ch->vars->modules = tn_bst_insert (ch->vars->modules, name, &ch->subch[ch->subch_num - 1]);
+
+			printf ("imported %s (chunk %x)\n", name, code);
+
+			tn_gen_emit8 (ch, OP_IMPT);
+			tn_gen_emit16 (ch, ch->subch_num - 1);
+
+			// now bind it to a value
+			id = tn_gen_id_num (ch, name, 1);
+			tn_gen_emit8 (ch, OP_SET);
+			tn_gen_emit32 (ch, id);
+			break;
+		}
 		default: break;
 	}
 }
 
 struct tn_chunk *tn_gen_compile (struct tn_expr *ex, struct tn_expr_data_fn *fn,
-                                 struct tn_chunk *next, struct tn_bst *vartree)
+                                 struct tn_chunk *next, struct tn_chunk_vars *vars)
 {
 	int i;
 	struct tn_chunk *ret = malloc (sizeof (*ret));
@@ -311,7 +356,20 @@ struct tn_chunk *tn_gen_compile (struct tn_expr *ex, struct tn_expr_data_fn *fn,
 	ret->pc = 0;
 	ret->name = fn ? fn->name : NULL;
 	array_init (ret->subch);
-	ret->vartree = vartree;
+	if (vars)
+		ret->vars = vars;
+	else {
+		ret->vars = malloc (sizeof (*ret->vars));
+
+		if (!ret->vars) {
+			free (ret->code);
+			goto error;
+		}
+
+		ret->vars->maxid = 0;
+		ret->vars->vartree = ret->vars->modules = NULL;
+	}
+
 	ret->next = next;
 
 	if (fn) {

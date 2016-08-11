@@ -12,7 +12,10 @@ struct tn_chunk {
 
 	// compiler specific stuff, the VM doesn't do anything with this
 	const char *name;
-	struct tn_bst *vartree;
+	struct tn_chunk_vars {
+		uint32_t maxid;
+		struct tn_bst *vartree, *modules;
+	} *vars;
 	struct tn_chunk *next;
 };
 

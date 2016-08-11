@@ -12,7 +12,7 @@ int main (int argc, char **argv)
 {
 	int repl = 0;
 	char line[4096];
-	struct tn_token *tok = NULL, *last = NULL, *bak;
+	struct tn_token *tok = NULL, *bak;
 	struct tn_expr *ast = NULL;
 	struct tn_chunk *code = NULL;
 	struct tn_scope *sc = tn_vm_scope (1); // acts as a global scope for the REPL
@@ -23,19 +23,12 @@ int main (int argc, char **argv)
 		return 1;
 	}
 
-	// we can load some builtins here
-	// ugly but temporary:
-	{
-		tok = bak = tn_lexer_tokenize ("fn map(f,l) l ? f(l:h) :: map(f,l:t) nil ;"
-		                               "nil", &last);	
-	}
-
 	tn_builtin_init (vm);
 
 	if (argc > 1)
-		last->next = tn_lexer_tokenize_file (fopen (argv[1], "r"));
+		tok = bak = tn_lexer_tokenize_file (fopen (argv[1], "r"));
 	else if (!isatty (fileno (stdin)))
-		last->next = tn_lexer_tokenize_file (stdin);
+		tok = bak = tn_lexer_tokenize_file (stdin);
 	else {
 		printf ("triton " GITVER "\n\n");
 		repl = 1;
@@ -52,7 +45,7 @@ int main (int argc, char **argv)
 				continue;
 			}
 
-			code = tn_gen_compile (ast, NULL, NULL, code ? code->vartree : NULL);
+			code = tn_gen_compile (ast, NULL, NULL, code ? code->vars : NULL);
 			tn_parser_free (ast);
 
 			if (!code) {
@@ -62,7 +55,7 @@ int main (int argc, char **argv)
 				continue;
 			}
 
-			tn_disasm (code);
+		//	tn_disasm (code);
 			tn_vm_dispatch (vm, code, NULL, sc, 0);
 
 			if (vm->error) {
@@ -77,6 +70,8 @@ int main (int argc, char **argv)
 				tn_vm_print (tn_vm_pop (vm));
 				printf ("\n");
 			}
+
+			tn_lexer_free_tokens (bak);
 		}
 
 		if (repl) {
