@@ -54,10 +54,9 @@ static struct tn_disasm_opinfo {
 	[OP_IDX] =	{ "IDX",	{ 0 } },
 	[OP_LSTS] =	{ "LSTS",	{ 0 } },
 	[OP_LSTE] =	{ "LSTE",	{ 0 } },
-	[OP_MACC] =	{ "MACC",	{ OA_32, 0 } },
 	[OP_NEG] =	{ "NEG",	{ 0 } },
 	[OP_NOT] =	{ "NOT",	{ 0 } },
-	[OP_IMPT] =	{ "IMPT",	{ OA_16, 0 } },
+	[OP_IMPT] =	{ "IMPT",	{ OA_STR, 0 } },
 	[OP_PRNT] =	{ "PRNT",	{ 0 } },
 	[OP_END] =	{ "END",	{ 0 } }
 };

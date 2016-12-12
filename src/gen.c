@@ -10,6 +10,7 @@
 #include "opcode.h"
 #include "gen.h"
 #include "vm.h"
+#include "load.h"
 
 // turn string identifiers into numbers
 static uint32_t tn_gen_id_num (struct tn_chunk *ch, const char *name, int set)
@@ -257,23 +258,10 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 			break;
 		}
 		case EXPR_ACCS: {
-			struct tn_expr *aex = ex->data.accs.expr;
-			struct tn_chunk **mod; // pointer into the chunk's subch array
+			tn_gen_expr (ch, ex->data.accs.expr, 0);
 
-			tn_gen_expr (ch, aex, 0);
-
-			// here we see if this is an identifier associated with a module
-			if (aex->type == EXPR_IDENT && (mod = tn_bst_find (ch->vars->modules, aex->data.s))) {
-				int16_t idx = mod - ch->subch; // mod is a pointer to an element in subch
-				uint32_t id = (uint32_t)tn_bst_find ((*mod)->vars->vartree, ex->data.accs.item);
-
-				tn_gen_emit8 (ch, OP_MACC);
-				tn_gen_emit32 (ch, id);
-			}
-			else {
-				tn_gen_emit8 (ch, OP_ACCS);
-				tn_gen_emitstring (ch, ex->data.accs.item);
-			}
+			tn_gen_emit8 (ch, OP_ACCS);
+			tn_gen_emitstring (ch, ex->data.accs.item);
 			break;
 		}
 		case EXPR_PRNT:
@@ -301,31 +289,10 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 			tn_gen_emit8 (ch, OP_LSTE);
 			break;
 		case EXPR_IMPT: {
-			// TODO: handle this a lot better, maybe in its own file
-			char *name, *per;
-			struct tn_token *tok, *bak;
-			struct tn_expr *ast;
-			struct tn_chunk *code;
-
-			tok = bak = tn_lexer_tokenize_file (fopen (ex->data.s, "r"));
-			ast = tn_parser_body (&tok);
-			code = tn_gen_compile (ast, NULL, NULL, NULL);
-
-			tn_parser_free (ast);
-			tn_lexer_free_tokens (bak);
-
-			name = basename (ex->data.s);
-			per = strchr (name, '.');
-			if (per)
-				*per = '\0';
-
-			array_add (ch->subch, code);
-			ch->vars->modules = tn_bst_insert (ch->vars->modules, name, &ch->subch[ch->subch_num - 1]);
-
-			printf ("imported %s (chunk %x)\n", name, code);
+			const char *name = ex->data.s;
 
 			tn_gen_emit8 (ch, OP_IMPT);
-			tn_gen_emit16 (ch, ch->subch_num - 1);
+			tn_gen_emitstring (ch, name);
 
 			// now bind it to a value
 			id = tn_gen_id_num (ch, name, 1);
@@ -356,6 +323,7 @@ struct tn_chunk *tn_gen_compile (struct tn_expr *ex, struct tn_expr_data_fn *fn,
 	ret->pc = 0;
 	ret->name = fn ? fn->name : NULL;
 	array_init (ret->subch);
+	ret->path = NULL;
 	if (vars)
 		ret->vars = vars;
 	else {

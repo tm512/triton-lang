@@ -11,6 +11,7 @@
 #include "value.h"
 #include "vm.h"
 #include "gc.h"
+#include "import.h"
 
 static inline uint8_t tn_vm_read8 (struct tn_vm *vm)
 {
@@ -444,6 +445,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				break;
 			case OP_ACCS: {
 				const char *item = tn_vm_readstring (vm);
+				uint32_t itemn;
 
 				v1 = tn_vm_pop (vm);
 
@@ -457,7 +459,15 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 						vm->error = 1;
 					}
 				}
+				else if (v1->type == VAL_SCOPE) { // module access
+					itemn = (uint32_t)tn_bst_find (v1->data.sc->ch->vars->vartree, item);
+					if (itemn == 0) {
+						error ("unbound variable %s in module\n", item);
+						vm->error = 1;
+					}
 
+					tn_vm_push (vm, v1->data.sc->vars->arr[itemn - 1]);
+				}
 				break;
 			}
 			case OP_LSTS:
@@ -468,16 +478,6 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				tn_vm_push (vm, v1);
 				tn_gc_release_list (v1);
 				break;
-			case OP_MACC: {
-				uint32_t i = tn_vm_read32 (vm) - 1;
-
-				v1 = tn_vm_pop (vm);
-
-				if (v1->type == VAL_SCOPE && i < v1->data.sc->vars->arr_num)
-					tn_vm_push (vm, v1->data.sc->vars->arr[i]);
-
-				break;
-			}
 			case OP_NEG:
 				v1 = tn_vm_pop (vm);
 				if (v1->type == VAL_INT)
@@ -490,7 +490,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				tn_vm_push (vm, tn_int (vm, tn_value_false (v1)));
 				break;
 			case OP_IMPT: {
-				struct tn_chunk *mod = vm->sc->ch->subch[tn_vm_read16 (vm)];
+				struct tn_chunk *mod = tn_import_load (tn_vm_readstring (vm), sc->ch->path);
 				struct tn_scope *s = tn_vm_scope (1);
 
 				tn_vm_dispatch (vm, mod, NULL, s, 0);

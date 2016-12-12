@@ -10,6 +10,8 @@ struct tn_chunk {
 	uint32_t pc, codelen;
 	array_def (subch, struct tn_chunk*);
 
+	const char *path;
+
 	// compiler specific stuff, the VM doesn't do anything with this
 	const char *name;
 	struct tn_chunk_vars {

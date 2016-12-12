@@ -26,7 +26,7 @@ struct tn_token {
 	struct tn_token *next;
 };
 
-struct tn_token *tn_lexer_tokenize (char *src, struct tn_token **last);
+struct tn_token *tn_lexer_tokenize (const char *src, struct tn_token **last);
 struct tn_token *tn_lexer_tokenize_file (FILE *f);
 void tn_lexer_free_tokens (struct tn_token *tok);
 

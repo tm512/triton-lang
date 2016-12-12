@@ -38,7 +38,6 @@
 #define OP_IDX	0x31
 #define OP_LSTS	0x32
 #define OP_LSTE	0x33
-#define OP_MACC	0x34
 #define OP_NEG	0x40 // more operators
 #define OP_NOT	0x41
 #define OP_IMPT	0x50

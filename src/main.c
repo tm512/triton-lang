@@ -6,6 +6,8 @@
 #include "parser.h"
 #include "gen.h"
 #include "vm.h"
+#include "import.h"
+#include "load.h"
 
 int tn_builtin_init (struct tn_vm *vm);
 int main (int argc, char **argv)
@@ -24,45 +26,26 @@ int main (int argc, char **argv)
 	}
 
 	tn_builtin_init (vm);
+	tn_import_set_path (".:~/.triton:/usr/share/triton");
 
 	if (argc > 1)
-		tok = bak = tn_lexer_tokenize_file (fopen (argv[1], "r"));
+		code = tn_load_file (argv[1], NULL);
 	else if (!isatty (fileno (stdin)))
-		tok = bak = tn_lexer_tokenize_file (stdin);
+		code = tn_load_file ("-", NULL);
 	else {
 		printf ("triton " GITVER "\n\n");
+		code = NULL;
 		repl = 1;
 	}
 
-	while (tok || repl) {
-		if (tok) {
-			ast = tn_parser_body (&tok);
-
-			if (!ast) {
-				tok = NULL;
-				tn_lexer_free_tokens (bak);
-				error ("parsing failed\n");
-				continue;
-			}
-
-			code = tn_gen_compile (ast, NULL, NULL, code ? code->vars : NULL);
-			tn_parser_free (ast);
-
-			if (!code) {
-				tok = NULL;
-				tn_lexer_free_tokens (bak);
-				error ("compilation failed\n");
-				continue;
-			}
-
-		//	tn_disasm (code);
+	do {
+		if (code) {
 			tn_vm_dispatch (vm, code, NULL, sc, 0);
 
 			if (vm->error) {
 				vm->error = 0;
 				vm->sp = 0;
 				tok = NULL;
-				tn_lexer_free_tokens (bak);
 				continue;
 			}
 
@@ -70,16 +53,15 @@ int main (int argc, char **argv)
 				tn_vm_print (tn_vm_pop (vm));
 				printf ("\n");
 			}
-
-			tn_lexer_free_tokens (bak);
 		}
 
 		if (repl) {
 			printf ("> ");
 			fgets (line, 4096, stdin);
-			tok = bak = tn_lexer_tokenize (line, NULL);
+			code = tn_load_string (line, code ? code->vars : NULL);
+//			tn_disasm (code);
 		}
-	}
+	} while (repl);
 
 	return 0;
 }

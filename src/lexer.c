@@ -48,10 +48,10 @@ static struct tn_builtin {
 	{ NULL, TOK_ZERO }
 };
 
-static int tn_lexer_identifier (char **src, struct tn_token *ret)
+static int tn_lexer_identifier (const char **src, struct tn_token *ret)
 {
 	int len;
-	char *c = *src;
+	const char *c = *src;
 
 	// count how many characters we need to copy over
 	while (*c && (isalpha (*c) || isdigit (*c) || *c == '_') && ++c);
@@ -68,11 +68,11 @@ static int tn_lexer_identifier (char **src, struct tn_token *ret)
 	return 0;
 }
 
-static int tn_lexer_number (char **src, struct tn_token *ret)
+static int tn_lexer_number (const char **src, struct tn_token *ret)
 {
 	int i = 0, frac = 0;
 	double d = 0.0, div = 1;
-	char *c = *src;
+	const char *c = *src;
 
 	// first, we read into the int
 	while (isdigit (*c)) {
@@ -107,10 +107,10 @@ static int tn_lexer_number (char **src, struct tn_token *ret)
 	return 0;
 }
 
-static int tn_lexer_string (char **src, struct tn_token *ret)
+static int tn_lexer_string (const char **src, struct tn_token *ret)
 {
 	char *str;
-	char *c = (*src) + 1;
+	const char *c = (*src) + 1;
 	int len = 0;
 
 	// count string length
@@ -154,10 +154,10 @@ static int tn_lexer_string (char **src, struct tn_token *ret)
 	return 0;
 }
 
-int tn_lexer_comment (char **src)
+int tn_lexer_comment (const char **src)
 {
 	int block;
-	char *c = *src + 1;
+	const char *c = *src + 1;
 
 	// block comment?
 	block = *(c++) == '-';
@@ -178,9 +178,9 @@ int tn_lexer_comment (char **src)
 	return !block; // only non-block comments can be terminated by a null character
 }
 
-static struct tn_token *tn_lexer_token (char **src)
+static struct tn_token *tn_lexer_token (const char **src)
 {
-	char *c;
+	const char *c;
 	int i, len;
 	struct tn_token *ret;
 
@@ -230,7 +230,7 @@ static struct tn_token *tn_lexer_token (char **src)
 	return NULL;
 }
 
-struct tn_token *tn_lexer_tokenize (char *src, struct tn_token **last)
+struct tn_token *tn_lexer_tokenize (const char *src, struct tn_token **last)
 {
 	struct tn_token *ret, *it;
 
