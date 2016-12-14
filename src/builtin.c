@@ -54,7 +54,7 @@ static void tn_builtin_range (struct tn_vm *vm, int n)
 	int i, start, end, step;
 	struct tn_value *lst = &nil, *num;
 
-	if ((n == 2 && tn_value_get_args (vm, "ii", &start, &end))
+	if (n < 2 || (n == 2 && tn_value_get_args (vm, "ii", &start, &end))
 	 || (n == 3 && tn_value_get_args (vm, "iii", &start, &end, &step))) {
 		error ("invalid arguments passed to range\n");
 		tn_vm_push (vm, &nil);

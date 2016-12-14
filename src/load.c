@@ -41,7 +41,7 @@ struct tn_chunk *tn_load_file (const char *path, struct tn_chunk_vars *vars)
 	struct tn_token *tok;
 
 	if (!strcmp (path, "-"))
-		f = fopen (stdin, "r");
+		f = stdin;
 	else
 		f = fopen (path, "r");
 

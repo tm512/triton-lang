@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "array.h"
 
-struct tn_bst;
+struct tn_hash;
 struct tn_chunk {
 	uint8_t *code;
 	uint32_t pc, codelen;
@@ -16,7 +16,7 @@ struct tn_chunk {
 	const char *name;
 	struct tn_chunk_vars {
 		uint32_t maxid;
-		struct tn_bst *vartree, *modules;
+		struct tn_hash *hash;
 	} *vars;
 	struct tn_chunk *next;
 };
@@ -38,7 +38,6 @@ struct tn_scope {
 struct tn_closure {
 	struct tn_chunk *ch;
 	struct tn_scope *sc; // saves the call stack at closure creation
-	array_def (upvals, struct tn_value*);
 };
 
 struct tn_gc;
@@ -46,7 +45,7 @@ struct tn_vm {
 	struct tn_value **stack;
 	unsigned int sp, sb, ss, error;
 	struct tn_scope *sc;
-	struct tn_bst *globals;
+	struct tn_hash *globals;
 	struct tn_gc *gc;
 };
 

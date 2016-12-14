@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "error.h"
-#include "bst.h"
+#include "hash.h"
 #include "opcode.h"
 #include "parser.h"
 #include "gen.h"
@@ -379,7 +379,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 			case OP_GLOB: {
 				// with globals, we push a reference to a value, tn_vm_pop will deref it
 				char *name = tn_vm_readstring (vm);
-				struct tn_value **ref = tn_bst_find_ref (vm->globals, name);
+				struct tn_value **ref = tn_hash_search_ref (vm->globals, name);
 
 				if (ref)
 					tn_vm_push (vm, tn_vref (vm, ref));
@@ -460,7 +460,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 					}
 				}
 				else if (v1->type == VAL_SCOPE) { // module access
-					itemn = (uint32_t)tn_bst_find (v1->data.sc->ch->vars->vartree, item);
+					itemn = (uint32_t)tn_hash_search (v1->data.sc->ch->vars->hash, item);
 					if (itemn == 0) {
 						error ("unbound variable %s in module\n", item);
 						vm->error = 1;
@@ -517,9 +517,7 @@ out:
 
 void tn_vm_setglobal (struct tn_vm *vm, const char *name, struct tn_value *val)
 {
-	vm->globals = tn_bst_insert (vm->globals, name, val);
-
-	if (!vm->globals) {
+	if (tn_hash_insert (vm->globals, name, val)) {
 		error ("failed to set global\n");
 		vm->error = 1;
 	}
@@ -545,7 +543,7 @@ struct tn_vm *tn_vm_init (uint32_t init_ss)
 	ret->error = 0;
 
 	ret->sc = NULL;
-
+	ret->globals = tn_hash_new (8);
 	ret->gc = tn_gc_init (ret, sizeof (struct tn_value) * 10);
 
 	if (!ret->gc) {

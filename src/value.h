@@ -9,7 +9,8 @@ struct tn_vm;
 struct tn_value {
 	enum tn_val_type {
 		VAL_NIL, VAL_IDENT, VAL_INT, VAL_DBL, VAL_STR,
-		VAL_PAIR, VAL_CLSR, VAL_CFUN, VAL_SCOPE, VAL_REF
+		VAL_PAIR, VAL_CLSR, VAL_CFUN, VAL_CMOD, VAL_SCOPE,
+		VAL_REF
 	} type;
 
 	union tn_val_data {

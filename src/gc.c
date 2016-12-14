@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "error.h"
-#include "bst.h"
+#include "hash.h"
 #include "value.h"
 #include "vm.h"
 #include "gc.h"
@@ -82,16 +82,6 @@ void tn_gc_scan (struct tn_value *v)
 	}
 }
 
-void tn_gc_globals (struct tn_bst *node)
-{
-	if (!node)
-		return;
-
-	tn_gc_scan (node->val);
-	tn_gc_globals (node->left);
-	tn_gc_globals (node->right);
-}
-
 struct tn_value *tn_gc_collect (struct tn_gc *gc)
 {
 	int i;
@@ -107,7 +97,8 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 	}
 
 	// scan globals
-	tn_gc_globals (gc->vm->globals);
+	for (i = 0; i < gc->vm->globals->size; i++)
+		tn_gc_scan (gc->vm->globals->entries[i].data);
 
 	// traverse the stack
 	for (i = 0; gc->vm->stack[i]; i++)

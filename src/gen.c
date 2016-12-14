@@ -4,7 +4,7 @@
 #include <string.h>
 #include <libgen.h>
 
-#include "bst.h"
+#include "hash.h"
 #include "lexer.h"
 #include "parser.h"
 #include "opcode.h"
@@ -17,13 +17,14 @@ static uint32_t tn_gen_id_num (struct tn_chunk *ch, const char *name, int set)
 {
 	// the BST associates void* with a key
 	// I don't want to allocate a bunch more stuff, so we're just storing the int in the pointer :/
-	uint32_t id = (uint32_t)tn_bst_find (ch->vars->vartree, name);
+	uint32_t id = (uint32_t)tn_hash_search (ch->vars->hash, name);
 
 	if (id || !set)
 		return id;
 	else {
 		id = ++ch->vars->maxid;
-		ch->vars->vartree = tn_bst_insert (ch->vars->vartree, name, (void*)(intptr_t)id);
+		if (tn_hash_insert (ch->vars->hash, name, (void*)(intptr_t)id))
+			return 0;
 		return id;
 	}
 }
@@ -335,7 +336,7 @@ struct tn_chunk *tn_gen_compile (struct tn_expr *ex, struct tn_expr_data_fn *fn,
 		}
 
 		ret->vars->maxid = 0;
-		ret->vars->vartree = ret->vars->modules = NULL;
+		ret->vars->hash = tn_hash_new (8);
 	}
 
 	ret->next = next;
