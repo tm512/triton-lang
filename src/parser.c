@@ -63,7 +63,6 @@ void tn_parser_free (struct tn_expr *expr)
 		case EXPR_ACCS:
 			tn_parser_free (expr->data.accs.expr);
 			break;
-		case EXPR_PRNT:
 		case EXPR_DO:
 			tn_parser_free (expr->data.expr);
 			break;
@@ -509,13 +508,7 @@ struct tn_expr *tn_parser_body (struct tn_token **tok)
 	ret = last = NULL;
 
 	while (*tok && !accept (TOK_SCOL) && !peek (TOK_COMM) && !peek (TOK_RPAR)) {
-		if (accept (TOK_PRNT)) {
-			new = tn_parser_alloc ();
-
-			new->type = EXPR_PRNT;
-			new->data.expr = tn_parser_if (tok);
-		}
-		else if (accept (TOK_IMPT)) {
+		if (accept (TOK_IMPT)) {
 			new = tn_parser_alloc ();
 			prev = *tok;
 

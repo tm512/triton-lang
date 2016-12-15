@@ -125,6 +125,63 @@ struct tn_value *tn_value_lste (struct tn_vm *vm)
 	return val;
 }
 
+char *tn_value_string (struct tn_value *val)
+{
+	char *ret, *old, *tmp;
+	struct tn_value *it;
+
+	switch (val->type) {
+		case VAL_NIL:
+			asprintf (&ret, "nil");
+			break;
+		case VAL_INT:
+			asprintf (&ret, "%i", val->data.i);
+			break;
+		case VAL_DBL:
+			asprintf (&ret, "%g", val->data.d);
+			break;
+		case VAL_STR:
+			asprintf (&ret, "%s", val->data.s);
+			break;
+		case VAL_PAIR:
+			it = val;
+
+			asprintf (&ret, "[");
+			while (it != &nil) {
+				old = ret;
+				tmp = tn_value_string (it->data.pair.a);
+
+				asprintf (&ret, "%s%s%s", old, tmp, (it->data.pair.b != &nil) ? " " : "");
+				free (old);
+				free (tmp);
+
+				it = it->data.pair.b;
+			}
+			old = ret;
+			asprintf (&ret, "%s]", old);
+			free (old);
+			break;
+		case VAL_CLSR:
+			asprintf (&ret, "closure:0x%lx", (uint64_t)val->data.cl);
+			break;
+		case VAL_CFUN:
+			asprintf (&ret, "cfun:0x%lx", (uint64_t)val->data.cfun);
+			break;
+		case VAL_CMOD:
+			asprintf (&ret, "cmod:0x%lx", (uint64_t)val->data.cmod);
+			break;
+		case VAL_CVAL:
+			asprintf (&ret, "cval:0x%lx", (uint64_t)val->data.cval.v);
+			break;
+		case VAL_SCOPE:
+			asprintf (&ret, "scope:0x%lx", (uint64_t)val->data.sc);
+			break;
+		default: break;
+	}
+
+	return ret;
+}
+
 int tn_value_get_args (struct tn_vm *vm, const char *types, ...)
 {
 	struct tn_value *val;
@@ -135,32 +192,51 @@ int tn_value_get_args (struct tn_vm *vm, const char *types, ...)
 	while (*types) {
 		val = tn_vm_pop (vm);
 
-		if (!val) {
-			va_end (va);
-			return 1;
-		}
+		if (!val)
+			goto error;
 
 		// now decide what to cast this to
 		switch (*types) {
 			case 'i': {
 				int *i = va_arg (va, int*);
+
+				if (val->type != VAL_INT)
+					goto error;
+
 				*i = val->data.i;
 				break;
 			}
 			case 'd': {
 				double *d = va_arg (va, double*);
+
+				if (val->type != VAL_DBL)
+					goto error;
+
 				*d = val->data.d;
 				break;
 			}
 			case 's': {
 				char **s = va_arg (va, char**);
+
+				if (val->type != VAL_STR)
+					goto error;
+
 				*s = val->data.s;
+				break;
+			}
+			case 'v': { // C value
+				void **v = va_arg (va, void**);
+
+				if (val->type != VAL_CVAL)
+					goto error;
+
+				*v = val->data.cval.v;
 				break;
 			}
 			case 'l': // list
 			case 'c': // closure
 			case 'C': // C function
-			case 'v': { // any value
+			case 'a': { // any value
 				struct tn_value **v = va_arg (va, struct tn_value**);
 				*v = val;
 				break;
@@ -172,4 +248,8 @@ int tn_value_get_args (struct tn_vm *vm, const char *types, ...)
 
 	va_end (va);
 	return 0;
+
+error:
+	va_end (va);
+	return 1;
 }

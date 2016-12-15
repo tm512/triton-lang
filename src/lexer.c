@@ -15,7 +15,6 @@ static struct tn_builtin {
 	enum tn_token_type type;
 } builtins[] = {
 	{ "import", TOK_IMPT },
-	{ "print", TOK_PRNT },
 	{ "nil", TOK_NIL },
 	{ "...", TOK_ELPS },
 	{ "do", TOK_DO },

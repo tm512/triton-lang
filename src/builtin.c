@@ -27,7 +27,7 @@ static void tn_builtin_apply (struct tn_vm *vm, int n)
 	struct tn_value *fn, *args, *tmp;
 	struct tn_scope *sc;
 	
-	if (n != 2 || tn_value_get_args (vm, "vl", &fn, &args)) {
+	if (n != 2 || tn_value_get_args (vm, "al", &fn, &args)) {
 		error ("invalid arguments passed to apply\n");
 		tn_vm_push (vm, &nil);
 		return;
@@ -67,21 +67,23 @@ static void tn_builtin_range (struct tn_vm *vm, int n)
 	end -= start % step; // start % step and end % step need to be the same
 
 	for (i = end; start < end ? i >= start : i <= start; i -= step) {
-		num = tn_int (vm, i);
-		tn_gc_preserve (num); // don't let the GC free this yet
+		num = tn_gc_preserve (tn_int (vm, i));
 
-		lst = tn_pair (vm, num, lst);
-		tn_gc_preserve (lst);
+		lst = tn_gc_preserve (tn_pair (vm, num, lst));
 	}
 
 	tn_gc_release_list (lst); 
 	tn_vm_push (vm, lst);
 }
 
+struct tn_hash *tn_string_module (struct tn_vm *vm);
+struct tn_hash *tn_io_module (struct tn_vm *vm);
 int tn_builtin_init (struct tn_vm *vm)
 {
 	tn_vm_setglobal (vm, "apply", tn_cfun (vm, tn_builtin_apply));
 	tn_vm_setglobal (vm, "range", tn_cfun (vm, tn_builtin_range));
+	tn_vm_setglobal (vm, "string", tn_cmod (vm, tn_string_module (vm)));
+	tn_vm_setglobal (vm, "io", tn_cmod (vm, tn_io_module (vm)));
 
 	return 0;
 }

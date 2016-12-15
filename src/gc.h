@@ -11,7 +11,7 @@ struct tn_gc {
 };
 
 struct tn_gc *tn_gc_init (struct tn_vm *vm, uint32_t bytes);
-void tn_gc_preserve (struct tn_value *val);
+struct tn_value *tn_gc_preserve (struct tn_value *val);
 void tn_gc_release (struct tn_value *val);
 void tn_gc_release_list (struct tn_value *lst);
 struct tn_value *tn_gc_alloc (struct tn_gc *gc);

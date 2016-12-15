@@ -265,10 +265,6 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 			tn_gen_emitstring (ch, ex->data.accs.item);
 			break;
 		}
-		case EXPR_PRNT:
-			tn_gen_expr (ch, ex->data.expr, 0);
-			tn_gen_emit8 (ch, OP_PRNT);
-			break;
 		case EXPR_DO:
 			it = ex->data.expr;
 

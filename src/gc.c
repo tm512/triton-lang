@@ -60,6 +60,8 @@ struct tn_value *tn_gc_resize (struct tn_gc *gc)
 
 void tn_gc_scan (struct tn_value *v)
 {
+	int i;
+
 	if (!v || v->flags & GC_MARKED)
 		return;
 
@@ -70,7 +72,6 @@ void tn_gc_scan (struct tn_value *v)
 		tn_gc_scan (v->data.pair.b);
 	}
 	else if (v->type == VAL_CLSR) {
-		int i;
 		struct tn_scope *sit = v->data.cl->sc;
 
 		while (sit) {
@@ -79,6 +80,10 @@ void tn_gc_scan (struct tn_value *v)
 
 			sit = sit->next;
 		}
+	}
+	else if (v->type == VAL_CMOD) {
+		for (i = 0; i < v->data.cmod->size; i++)
+			tn_gc_scan (v->data.cmod->entries[i].data);
 	}
 }
 
@@ -159,9 +164,10 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 	return gc->free;
 }
 
-void tn_gc_preserve (struct tn_value *val)
+struct tn_value *tn_gc_preserve (struct tn_value *val)
 {
 	val->flags |= GC_PRESERVE;
+	return val;
 }
 
 void tn_gc_release (struct tn_value *val)

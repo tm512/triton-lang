@@ -80,6 +80,8 @@ int tn_hash_insert (struct tn_hash *hash, const char *key, void *data)
 		keyval %= hash->size;
 	}
 
+//	printf ("%s - %u\n", key, keyval);
+
 	hash->entries[keyval].key = key;
 	hash->entries[keyval].data = data;
 

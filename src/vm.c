@@ -124,43 +124,9 @@ struct tn_value *tn_vm_pop (struct tn_vm *vm)
 
 void tn_vm_print (struct tn_value *val)
 {
-	struct tn_value *it;
-	switch (val->type) {
-		case VAL_NIL:
-			printf ("nil");
-			break;
-		case VAL_INT:
-			printf ("%i", val->data.i);
-			break;
-		case VAL_DBL:
-			printf ("%g", val->data.d);
-			break;
-		case VAL_STR:
-			printf ("\"%s\"", val->data.s);
-			break;
-		case VAL_PAIR:
-			it = val;
-
-			printf ("[");
-			while (it != &nil) {
-				tn_vm_print (it->data.pair.a);
-				it = it->data.pair.b;
-				if (it != &nil)
-					printf (" ");
-			}
-			printf ("]");
-			break;
-		case VAL_CLSR:
-			printf ("closure 0x%lx", (uint64_t)val->data.cl);
-			break;
-		case VAL_CFUN:
-			printf ("cfun 0x%lx", (uint64_t)val->data.cfun);
-			break;
-		case VAL_SCOPE:
-			printf ("scope 0x%lx", (uint64_t)val->data.sc);
-			break;
-		default: break;
-	}
+	char *str = tn_value_string (val);
+	printf ("%s", str);
+	free (str);
 }
 
 #define numop(OP) { \
@@ -467,6 +433,16 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 					}
 
 					tn_vm_push (vm, v1->data.sc->vars->arr[itemn - 1]);
+				}
+				else if (v1->type == VAL_CMOD) {
+					struct tn_value *val = tn_hash_search (v1->data.cmod, item);
+
+					if (val)
+						tn_vm_push (vm, val);
+					else {
+						error ("unbound variable %s in C module\n", item);
+						vm->error = 1;
+					}
 				}
 				break;
 			}
