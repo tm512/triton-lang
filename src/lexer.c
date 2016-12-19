@@ -15,10 +15,12 @@ static struct tn_builtin {
 	enum tn_token_type type;
 } builtins[] = {
 	{ "import", TOK_IMPT },
+	{ "else", TOK_ELSE },
 	{ "nil", TOK_NIL },
 	{ "...", TOK_ELPS },
 	{ "do", TOK_DO },
 	{ "fn", TOK_FN },
+	{ "if", TOK_IF },
 	{ "==", TOK_EQ },
 	{ "!=", TOK_NEQ },
 	{ "<=", TOK_LTE },
@@ -42,7 +44,6 @@ static struct tn_builtin {
 	{ "%", TOK_MOD },
 	{ ":", TOK_COL },
 	{ ";", TOK_SCOL },
-	{ "?", TOK_QMRK },
 	{ "!", TOK_EXCL },
 	{ NULL, TOK_ZERO }
 };

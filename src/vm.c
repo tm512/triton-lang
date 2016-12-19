@@ -80,7 +80,7 @@ static char *tn_vm_readstring (struct tn_vm *vm)
 void tn_vm_print (struct tn_value*);
 void tn_vm_push (struct tn_vm *vm, struct tn_value *val)
 {
-	if (vm->sp == vm->ss) {
+	if (++vm->sp == vm->ss) {
 		vm->ss *= 2;
 		vm->stack = realloc (vm->stack, vm->ss * sizeof (struct tn_value*));
 
@@ -90,7 +90,7 @@ void tn_vm_push (struct tn_vm *vm, struct tn_value *val)
 		}
 	}
 
-	vm->stack[vm->sp++] = val;
+	vm->stack[vm->sp - 1] = val;
 
 	if (0)
 	{
@@ -235,7 +235,7 @@ void tn_vm_free_scope (struct tn_scope *sc)
 	}
 }
 
-void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc, int nargs)
+void tn_vm_exec (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc, int nargs)
 {
 	int tailcall = 0;
 	struct tn_value *v1, *v2, *v3;
@@ -403,7 +403,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 						continue;
 					}
 
-					tn_vm_dispatch (vm, v1->data.cl->ch, v1, NULL, tn_vm_read32 (vm));
+					tn_vm_exec (vm, v1->data.cl->ch, v1, NULL, tn_vm_read32 (vm));
 					vm->sc = sc;
 				}
 				else if (v1->type == VAL_CFUN)
@@ -469,7 +469,7 @@ void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl,
 				struct tn_chunk *mod = tn_import_load (tn_vm_readstring (vm), sc->ch->path);
 				struct tn_scope *s = tn_vm_scope (1);
 
-				tn_vm_dispatch (vm, mod, NULL, s, 0);
+				tn_vm_exec (vm, mod, NULL, s, 0);
 				tn_vm_push (vm, tn_scope (vm, s));
 				vm->sc = sc;
 				break;

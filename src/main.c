@@ -40,7 +40,8 @@ int main (int argc, char **argv)
 
 	do {
 		if (code) {
-			tn_vm_dispatch (vm, code, NULL, sc, 0);
+		//	tn_disasm (code);
+			tn_vm_exec (vm, code, NULL, sc, 0);
 
 			if (vm->error) {
 				vm->error = 0;
@@ -59,7 +60,6 @@ int main (int argc, char **argv)
 			printf ("> ");
 			fgets (line, 4096, stdin);
 			code = tn_load_string (line, code ? code->vars : NULL);
-		//	tn_disasm (code);
 		}
 	} while (repl);
 

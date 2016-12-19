@@ -471,30 +471,24 @@ struct tn_expr *tn_parser_fn (struct tn_token **tok)
 
 struct tn_expr *tn_parser_if (struct tn_token **tok)
 {
-	struct tn_expr *ret, *new;
+	struct tn_expr *ret;
 
-	ret = tn_parser_bool (tok);
+	if (accept (TOK_IF)) {
+		ret = tn_parser_alloc ();
 
-	if (!ret)
-		return NULL;
+		ret->type = EXPR_IF;
+		ret->data.ifs.cond = tn_parser_bool (tok);
+		ret->data.ifs.t = tn_parser_if (tok);
 
-	if (accept (TOK_QMRK)) {
-		new = tn_parser_alloc ();
+		if (accept (TOK_ELSE))
+			ret->data.ifs.f = tn_parser_if (tok);
+		else
+			ret->data.ifs.f = NULL;
 
-		new->type = EXPR_IF;
-		new->data.ifs.cond = ret;
-		new->data.ifs.t = tn_parser_if (tok);
-		new->data.ifs.f = tn_parser_if (tok);
-
-		if (!new->data.ifs.t || !new->data.ifs.f) {
-			tn_parser_free (new);
-			return NULL;
-		}
-
-		ret = new;
+		return ret;
 	}
-
-	return ret;
+	else
+		return tn_parser_bool (tok);
 }
 
 // top-level expression, used for source files, functions, do-statements

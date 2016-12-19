@@ -10,7 +10,6 @@
 #include "opcode.h"
 #include "gen.h"
 #include "vm.h"
-#include "load.h"
 
 // turn string identifiers into numbers
 static uint32_t tn_gen_id_num (struct tn_chunk *ch, const char *name, int set)
@@ -254,7 +253,11 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 			tn_gen_emit32 (ch, 0);
 			tn_gen_emitpos (ch, ch->pc, tskip); // we jump here on false
 
-			tn_gen_expr (ch, ex->data.ifs.f, final);
+			if (ex->data.ifs.f)
+				tn_gen_expr (ch, ex->data.ifs.f, final);
+			else
+				tn_gen_emit8 (ch, OP_NIL);
+
 			tn_gen_emitpos (ch, ch->pc, fskip); // we jump here after true
 			break;
 		}
@@ -271,6 +274,9 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 			while (it) {
 				tn_gen_expr (ch, it, 0);
 				it = it->next;
+
+				if (it) // discard this value, we don't need it on the stack
+					tn_gen_emit8 (ch, OP_DROP);
 			}
 
 			break;

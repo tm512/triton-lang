@@ -8,7 +8,7 @@
 
 static void tn_list_map (struct tn_vm *vm, int argn)
 {
-	int i, anynil = 0;
+	int i, anynil = 0, pushed = 0;
 	uint8_t gc_on = vm->gc->on;
 	struct tn_value *fn = vm->stack[vm->sp - 1], *ret = &nil, **tail = &ret;
 	struct tn_value **lists = &vm->stack[vm->sp - argn];
@@ -34,11 +34,13 @@ static void tn_list_map (struct tn_vm *vm, int argn)
 		// recursively push one value from each list passed, then increment the head of that list
 		for (i = argn - 2; i >= 0; i--) {
 			if (lists[i] != &nil) {
+				pushed++;
 				tn_vm_push (vm, lists[i]->data.pair.a);
 				lists[i] = lists[i]->data.pair.b;
 			}
 			else {
 				anynil = 1;
+				vm->sp -= pushed;
 				break;
 			}
 		}
@@ -48,11 +50,13 @@ static void tn_list_map (struct tn_vm *vm, int argn)
 
 		if (fn->type == VAL_CLSR) {
 			sc = vm->sc;
-			tn_vm_dispatch (vm, fn->data.cl->ch, fn, NULL, argn - 1);
+			tn_vm_exec (vm, fn->data.cl->ch, fn, NULL, argn - 1);
 			vm->sc = sc;
 		}
 		else if (fn->type == VAL_CFUN)
 			fn->data.cfun (vm, argn - 1);
+
+		pushed = 0;
 
 		*tail = tn_pair (vm, tn_vm_pop (vm), &nil);
 		tail = &(*tail)->data.pair.b;
@@ -70,7 +74,8 @@ static void tn_list_filter (struct tn_vm *vm, int argn)
 	struct tn_value *ret = &nil, **tail = &ret;
 	struct tn_scope *sc;
 
-	if (argn != 2 || tn_value_get_args (vm, "al", &fn, &lst) || (fn->type != VAL_CLSR && fn->type != VAL_CFUN)) {
+	if (argn != 2 || tn_value_get_args (vm, "aa", &fn, &lst)
+	    || (fn->type != VAL_CLSR && fn->type != VAL_CFUN) || (lst != &nil && lst->type != VAL_PAIR)) {
 		error ("invalid arguments passed to list:filter\n");
 		tn_vm_push (vm, &nil);
 		return;
@@ -83,7 +88,7 @@ static void tn_list_filter (struct tn_vm *vm, int argn)
 
 		if (fn->type == VAL_CLSR) {
 			sc = vm->sc;
-			tn_vm_dispatch (vm, fn->data.cl->ch, fn, NULL, 1);
+			tn_vm_exec (vm, fn->data.cl->ch, fn, NULL, 1);
 			vm->sc = sc;
 		}
 		else if (fn->type == VAL_CFUN)

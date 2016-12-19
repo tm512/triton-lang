@@ -52,7 +52,7 @@ struct tn_vm {
 void tn_vm_push (struct tn_vm *vm, struct tn_value *val);
 struct tn_value *tn_vm_pop (struct tn_vm *vm);
 void tn_vm_print (struct tn_value *val);
-void tn_vm_dispatch (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc, int nargs);
+void tn_vm_exec (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc, int nargs);
 struct tn_scope *tn_vm_scope (uint8_t keep);
 void tn_vm_scope_inc_ref (struct tn_scope *sc);
 void tn_vm_scope_dec_ref (struct tn_scope *sc);

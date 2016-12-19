@@ -38,7 +38,7 @@ static void tn_builtin_apply (struct tn_vm *vm, int n)
 
 	if (fn->type == VAL_CLSR) {
 		sc = vm->sc;
-		tn_vm_dispatch (vm, fn->data.cl->ch, fn, NULL, nargs);
+		tn_vm_exec (vm, fn->data.cl->ch, fn, NULL, nargs);
 		vm->sc = sc;
 	}
 	else if (fn->type == VAL_CFUN)

@@ -177,6 +177,8 @@ char *tn_value_string (struct tn_value *val)
 		case VAL_SCOPE:
 			asprintf (&ret, "scope:0x%lx", (uint64_t)val->data.sc);
 			break;
+		case VAL_REF:
+			return tn_value_string (*val->data.ref);
 		default: break;
 	}
 

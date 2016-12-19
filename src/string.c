@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "error.h"
@@ -25,6 +26,8 @@ void tn_string_format (struct tn_vm *vm, int argn)
 
 	copy = NULL;
 	tail = buf;
+
+	memset (buf, 0, bufsize);
 
 	if (argn == 0 || tn_value_get_args (vm, "s", &fmt)) {
 		error ("invalid arguments passed to string:format\n");
