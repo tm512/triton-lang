@@ -76,6 +76,7 @@ static void tn_builtin_range (struct tn_vm *vm, int n)
 	tn_vm_push (vm, lst);
 }
 
+struct tn_hash *tn_list_module (struct tn_vm *vm);
 struct tn_hash *tn_string_module (struct tn_vm *vm);
 struct tn_hash *tn_io_module (struct tn_vm *vm);
 int tn_builtin_init (struct tn_vm *vm)
@@ -84,6 +85,7 @@ int tn_builtin_init (struct tn_vm *vm)
 	tn_vm_setglobal (vm, "range", tn_cfun (vm, tn_builtin_range));
 	tn_vm_setglobal (vm, "string", tn_cmod (vm, tn_string_module (vm)));
 	tn_vm_setglobal (vm, "io", tn_cmod (vm, tn_io_module (vm)));
+	tn_vm_setglobal (vm, "list", tn_cmod (vm, tn_list_module (vm)));
 
 	return 0;
 }

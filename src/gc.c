@@ -45,6 +45,7 @@ struct tn_gc *tn_gc_init (struct tn_vm *vm, uint32_t bytes)
 	ret->used = NULL;
 	ret->num_nodes = bytes / sizeof (*ret->free);
 	ret->vm = vm;
+	ret->on = 1;
 
 	return ret;
 }
@@ -194,7 +195,7 @@ struct tn_value *tn_gc_alloc (struct tn_gc *gc)
 	if (!gc)
 		return NULL;
 
-	if (!gc->free && !tn_gc_collect (gc) && !tn_gc_resize (gc)) {
+	if (!gc->free && (!gc->on || !tn_gc_collect (gc)) && !tn_gc_resize (gc)) {
 		error ("out of memory\n");
 		return NULL;
 	}

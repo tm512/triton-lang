@@ -22,6 +22,7 @@ struct tn_value *tn_value_new (struct tn_vm *vm, enum tn_val_type type, union tn
 
 	ret->type = type;
 	ret->data = data;
+	ret->flags = 0;
 
 	return ret;
 }
@@ -234,8 +235,14 @@ int tn_value_get_args (struct tn_vm *vm, const char *types, ...)
 				break;
 			}
 			case 'l': // list
+				if (val->type != VAL_PAIR)
+					goto error;
 			case 'c': // closure
+				if (*types == 'c' && val->type != VAL_CLSR)
+					goto error;
 			case 'C': // C function
+				if (*types == 'C' && val->type != VAL_CFUN)
+					goto error;
 			case 'a': { // any value
 				struct tn_value **v = va_arg (va, struct tn_value**);
 				*v = val;

@@ -8,6 +8,7 @@ struct tn_gc {
 	struct tn_value *used, *free;
 	struct tn_vm *vm;
 	uint32_t num_nodes;
+	uint8_t on;
 };
 
 struct tn_gc *tn_gc_init (struct tn_vm *vm, uint32_t bytes);

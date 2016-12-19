@@ -514,6 +514,7 @@ struct tn_vm *tn_vm_init (uint32_t init_ss)
 		return NULL;
 	}
 
+	memset (ret->stack, 0, init_ss * sizeof (struct tn_value*));
 	ret->sp = ret->sb = 0;
 	ret->ss = init_ss;
 	ret->error = 0;
