@@ -34,7 +34,6 @@ int main (int argc, char **argv)
 		code = tn_load_file ("-", NULL);
 	else {
 		printf ("triton " GITVER "\n\n");
-		code = NULL;
 		repl = 1;
 	}
 
@@ -47,6 +46,7 @@ int main (int argc, char **argv)
 				vm->error = 0;
 				vm->sp = 0;
 				tok = NULL;
+				code = NULL; // TODO: free this
 				continue;
 			}
 

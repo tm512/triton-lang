@@ -17,7 +17,7 @@ gitver () {
 
 OPT=${OPT:-0}
 DBG=${DBG:-3}
-CFLAGS=${CFLAGS:-"-std=c11 -pedantic -O$OPT -g$DBG -DGITVER=\"$(gitver)\""}
+CFLAGS=${CFLAGS:-"-std=c11 -pedantic -Wall -O$OPT -g$DBG -DGITVER=\"$(gitver)\""}
 LDFLAGS=${LDFLAGS:-""}
 OBJDIR=${OBJDIR:-obj}
 OUT=${OUT:-triton}

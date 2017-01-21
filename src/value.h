@@ -52,6 +52,7 @@ struct tn_value *tn_value_new (struct tn_vm *vm, enum tn_val_type type, union tn
 int tn_value_true (struct tn_value *v);
 int tn_value_false (struct tn_value *v);
 struct tn_value *tn_value_cat (struct tn_vm *vm, struct tn_value *a, struct tn_value *b);
+struct tn_value *tn_value_lcopy (struct tn_vm *vm, struct tn_value *lst, struct tn_value **last);
 struct tn_value *tn_value_lcat (struct tn_vm *vm, struct tn_value *a, struct tn_value *b);
 struct tn_value *tn_value_lcon (struct tn_vm *vm, int n);
 struct tn_value *tn_value_lste (struct tn_vm *vm);

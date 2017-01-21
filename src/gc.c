@@ -148,6 +148,8 @@ struct tn_value *tn_gc_collect (struct tn_gc *gc)
 			}
 			else if (vit->type == VAL_STR)
 				free (vit->data.s);
+			else if (vit->type == VAL_CVAL && vit->data.cval.free)
+				vit->data.cval.free (vit->data.cval.v);
 
 			next = vit->next;
 			vit->next = gc->free;

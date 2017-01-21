@@ -55,6 +55,8 @@ int tn_hash_resize (struct tn_hash *hash)
 		return 1;
 	}
 
+	memset (hash->entries, 0, hash->size * sizeof (*hash->entries));
+
 	for (i = 0; i < oldsize; i++) {
 		if (old[i].key && tn_hash_insert (hash, old[i].key, old[i].data)) {
 			error ("rehashing failed after resizing\n");
@@ -68,19 +70,21 @@ int tn_hash_resize (struct tn_hash *hash)
 
 int tn_hash_insert (struct tn_hash *hash, const char *key, void *data)
 {
-	uint32_t keyval = tn_hash_string (key) % hash->size;
+	uint32_t keyval;
 
 	if (hash->load > hash->size * 0.75 && tn_hash_resize (hash)) {
 		error ("failed to resize hash table\n");
 		return 1;
 	}
 
+	keyval = tn_hash_string (key) % hash->size;
+
 	while (hash->entries[keyval].key) {
 		keyval++;
 		keyval %= hash->size;
 	}
 
-//	printf ("%s - %u\n", key, keyval);
+//	printf ("%s - %u/%u\n", key, keyval, hash->size);
 
 	hash->entries[keyval].key = key;
 	hash->entries[keyval].data = data;
@@ -95,6 +99,7 @@ void *tn_hash_search_ref (struct tn_hash *hash, const char *key)
 	uint32_t keyval = tn_hash_string (key) % hash->size;
 
 	while (hash->entries[keyval].key) {
+	//	printf ("checking %s - %u/%u\n", hash->entries[keyval].key, keyval, hash->size);
 		if (!strcmp (key, hash->entries[keyval].key))
 			return &hash->entries[keyval].data;
 		else {

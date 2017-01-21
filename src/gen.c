@@ -137,10 +137,9 @@ static uint8_t bop_opcodes[] = {
 };
 #undef op
 
-static int nfunc = 0;
 static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 {
-	uint32_t i, id;
+	uint32_t id;
 	struct tn_expr *it;
 
 	switch (ex->type) {
@@ -224,7 +223,6 @@ static void tn_gen_expr (struct tn_chunk *ch, struct tn_expr *ex, int final)
 			break;
 		case EXPR_CALL: {
 			int nargs = 0;
-			struct tn_expr_data_fn *fn;
 
 			it = ex->data.call.args;
 

@@ -24,7 +24,7 @@ static void tn_builtin_apply (struct tn_vm *vm, int n)
 	// fn (1, 2, 3) == 3 2 1 fn call
 	// apply (fn, [1 2 3]) == [1 2 3] fn apply call
 	int nargs;
-	struct tn_value *fn, *args, *tmp;
+	struct tn_value *fn, *args;
 	struct tn_scope *sc;
 	
 	if (n != 2 || tn_value_get_args (vm, "al", &fn, &args)) {

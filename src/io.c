@@ -30,7 +30,6 @@ static void tn_io_fprintf (struct tn_vm *vm, int argn)
 		goto error;
 
 	tn_vm_push (vm, tn_int (vm, fprintf (f, "%s", fmt)));
-//	fflush (f);
 	return;
 
 error:

@@ -69,12 +69,23 @@ struct tn_value *tn_value_cat (struct tn_vm *vm, struct tn_value *a, struct tn_v
 	return NULL;
 }
 
-struct tn_value *tn_value_list_copy (struct tn_vm *vm, struct tn_value *lst)
+struct tn_value *tn_value_lcopy (struct tn_vm *vm, struct tn_value *lst, struct tn_value **last)
 {
-	if (lst == &nil)
-		return &nil;
+	uint8_t gc_on = vm->gc->on;
+	struct tn_value *ret = &nil, **tail = &ret;
 
-	return tn_pair (vm, lst->data.pair.a, tn_value_list_copy (vm, lst->data.pair.b));
+	vm->gc->on = 0;
+
+	while (lst != &nil) {
+		*tail = tn_pair (vm, lst->data.pair.a, &nil);
+		*last = *tail;
+		tail = &(*tail)->data.pair.b;
+
+		lst = lst->data.pair.b;
+	}
+
+	vm->gc->on = gc_on;
+	return ret;
 }
 
 // list concatenation
@@ -85,8 +96,7 @@ struct tn_value *tn_value_lcat (struct tn_vm *vm, struct tn_value *a, struct tn_
 	// to make this a proper list, we need the second element to be a pair too
 	// this requires a bit of working with the GC
 	if (b != &nil && b->type != VAL_PAIR) {
-		b = tn_pair (vm, b, &nil);
-		tn_gc_preserve (b);
+		b = tn_gc_preserve (tn_pair (vm, b, &nil));
 		ret = tn_pair (vm, a, b);
 		tn_gc_release (b);
 
@@ -103,8 +113,7 @@ struct tn_value *tn_value_lcon (struct tn_vm *vm, int n)
 	if (n == 0)
 		return &nil;
 
-	val = tn_vm_pop (vm);
-	tn_gc_preserve (val);
+	val = tn_gc_preserve (tn_vm_pop (vm));
 	val = tn_pair (vm, val, tn_value_lcon (vm, n - 1));
 	tn_gc_release (val->data.pair.a);
 
@@ -128,7 +137,7 @@ struct tn_value *tn_value_lste (struct tn_vm *vm)
 
 char *tn_value_string (struct tn_value *val)
 {
-	char *ret, *old, *tmp;
+	char *ret = NULL, *old, *tmp;
 	struct tn_value *it;
 
 	switch (val->type) {
@@ -178,7 +187,10 @@ char *tn_value_string (struct tn_value *val)
 			asprintf (&ret, "scope:0x%lx", (uint64_t)val->data.sc);
 			break;
 		case VAL_REF:
-			return tn_value_string (*val->data.ref);
+			tmp = tn_value_string (*val->data.ref);
+			asprintf (&ret, "ref:%s", tmp);
+			free (tmp);
+			break;
 		default: break;
 	}
 
