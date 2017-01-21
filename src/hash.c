@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "error.h"
 #include "hash_rand.h" // for rlut
 #include "hash.h"
 
@@ -10,7 +12,7 @@ uint32_t tn_hash_string (const char *s)
 	uint32_t ret = 0;
 
 	while (*s) {
-		ret ^= rlut[*(s++)];
+		ret ^= rlut[(unsigned char)*(s++)];
 		ret = (ret << 7) | (ret >> 25);
 	}
 
@@ -50,7 +52,7 @@ int tn_hash_resize (struct tn_hash *hash)
 	hash->entries = malloc (hash->size * sizeof (*hash->entries));
 
 	if (!hash->entries) {
-		error ("malloc failed\n");
+		tn_error ("malloc failed\n");
 		free (old);
 		return 1;
 	}
@@ -59,7 +61,7 @@ int tn_hash_resize (struct tn_hash *hash)
 
 	for (i = 0; i < oldsize; i++) {
 		if (old[i].key && tn_hash_insert (hash, old[i].key, old[i].data)) {
-			error ("rehashing failed after resizing\n");
+			tn_error ("rehashing failed after resizing\n");
 			free (old);
 			return 1;
 		}
@@ -73,7 +75,7 @@ int tn_hash_insert (struct tn_hash *hash, const char *key, void *data)
 	uint32_t keyval;
 
 	if (hash->load > hash->size * 0.75 && tn_hash_resize (hash)) {
-		error ("failed to resize hash table\n");
+		tn_error ("failed to resize hash table\n");
 		return 1;
 	}
 
@@ -117,6 +119,7 @@ void *tn_hash_search (struct tn_hash *hash, const char *key)
 	return ref ? *ref : NULL;
 }
 
+#if 0
 static char *keygen ()
 {
 	static char key[] = "aaaa";
@@ -137,3 +140,4 @@ static char *keygen ()
 
 	return NULL;
 }
+#endif

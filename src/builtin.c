@@ -28,7 +28,7 @@ static void tn_builtin_apply (struct tn_vm *vm, int n)
 	struct tn_scope *sc;
 	
 	if (n != 2 || tn_value_get_args (vm, "al", &fn, &args)) {
-		error ("invalid arguments passed to apply\n");
+		tn_error ("invalid arguments passed to apply\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -44,7 +44,7 @@ static void tn_builtin_apply (struct tn_vm *vm, int n)
 	else if (fn->type == VAL_CFUN)
 		fn->data.cfun (vm, nargs);
 	else {
-		error ("non-function passed to apply\n");
+		tn_error ("non-function passed to apply\n");
 		tn_vm_push (vm, &nil);
 	}
 }
@@ -56,7 +56,7 @@ static void tn_builtin_range (struct tn_vm *vm, int n)
 
 	if (n < 2 || (n == 2 && tn_value_get_args (vm, "ii", &start, &end))
 	 || (n == 3 && tn_value_get_args (vm, "iii", &start, &end, &step))) {
-		error ("invalid arguments passed to range\n");
+		tn_error ("invalid arguments passed to range\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}

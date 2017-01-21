@@ -226,7 +226,7 @@ static struct tn_token *tn_lexer_token (const char **src)
 	if (*c == '#' && tn_lexer_comment (src))
 		return tn_lexer_token (src); // call this again to get the next token
 
-	error ("unrecognized token at: %s\n", c);
+	tn_error ("unrecognized token at: %s\n", c);
 	return NULL;
 }
 
@@ -258,7 +258,7 @@ struct tn_token *tn_lexer_tokenize_file (FILE *f)
 	src = malloc (4096);
 
 	if (!src) {
-		error ("malloc failed");
+		tn_error ("malloc failed");
 		return NULL;
 	}
 
@@ -272,7 +272,7 @@ struct tn_token *tn_lexer_tokenize_file (FILE *f)
 		src = realloc (src, len);
 
 		if (!src) {
-			error ("realloc failed\n");
+			tn_error ("realloc failed\n");
 			free (bak);
 			return NULL;
 		}

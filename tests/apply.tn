@@ -1,2 +1,0 @@
-print seq (1, 10)
-print apply (seq, 1 :: 10)

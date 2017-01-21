@@ -3,7 +3,7 @@
 #include <stdarg.h>
 
 // eventually we'll put in some callbacks here and stuff
-void error (const char *fmt, ...)
+void tn_error (const char *fmt, ...)
 {
 	va_list va;
 

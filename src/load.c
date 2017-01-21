@@ -17,7 +17,7 @@ struct tn_chunk *tn_load_tokens (struct tn_token *tok, struct tn_chunk_vars *var
 
 	if (!ast) {
 		tn_lexer_free_tokens (bak);
-		error ("parsing failed\n");
+		tn_error ("parsing failed\n");
 		return NULL;
 	}
 
@@ -27,7 +27,7 @@ struct tn_chunk *tn_load_tokens (struct tn_token *tok, struct tn_chunk_vars *var
 	tn_parser_free (ast);
 
 	if (!ret) {
-		error ("compilation failed\n");
+		tn_error ("compilation failed\n");
 		return NULL;
 	}
 
@@ -51,7 +51,7 @@ struct tn_chunk *tn_load_file (const char *path, struct tn_chunk_vars *vars)
 	tok = tn_lexer_tokenize_file (f);
 
 	if (!tok) {
-		error ("lexing failed\n");
+		tn_error ("lexing failed\n");
 		return NULL;
 	}
 	
@@ -68,7 +68,7 @@ struct tn_chunk *tn_load_string (const char *str, struct tn_chunk_vars *vars)
 	tok = tn_lexer_tokenize (str, NULL);
 
 	if (!tok) {
-		error ("lexing failed\n");
+		tn_error ("lexing failed\n");
 		return NULL;
 	}
 

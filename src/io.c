@@ -33,7 +33,7 @@ static void tn_io_fprintf (struct tn_vm *vm, int argn)
 	return;
 
 error:
-	error ("invalid arguments passed to io:fprintf\n");
+	tn_error ("invalid arguments passed to io:fprintf\n");
 	tn_vm_push (vm, &nil);
 }
 
@@ -50,7 +50,7 @@ static void tn_io_fopen (struct tn_vm *vm, int argn)
 	const char *path, *mode;
 
 	if (argn != 2 || tn_value_get_args (vm, "ss", &path, &mode)) {
-		error ("invalid arguments passed to io:fopen\n");
+		tn_error ("invalid arguments passed to io:fopen\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -65,7 +65,7 @@ static void tn_io_fclose (struct tn_vm *vm, int argn)
 	FILE *f;
 
 	if (argn != 1 || tn_value_get_args (vm, "v", &f)) {
-		error ("invalid arguments passed to io:fclose\n");
+		tn_error ("invalid arguments passed to io:fclose\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}

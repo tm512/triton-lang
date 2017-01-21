@@ -20,7 +20,7 @@ static inline struct tn_expr *tn_parser_alloc ()
 	struct tn_expr *ret = malloc (sizeof (*ret));
 
 	if (!ret) {
-		error ("malloc failure\n");
+		tn_error ("malloc failure\n");
 		return NULL;
 	}
 
@@ -101,7 +101,7 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 {
 	// factor = (expr) | negate | ident [([args])] | int | float
 	struct tn_token *prev = *tok;
-	struct tn_expr *ret, *new, *tmp;
+	struct tn_expr *ret, *new;
 
 	ret = new = NULL;
 
@@ -109,14 +109,14 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 		ret = tn_parser_if (tok);
 
 		if (!accept (TOK_RPAR)) {
-			error ("expected ')'\n");
+			tn_error ("expected ')'\n");
 			goto cleanup;
 		}
 	}
 	else if (accept (TOK_FN)) {
 		ret = tn_parser_fn (tok);
 		if (!ret) {
-			error ("expected function definition\n");
+			tn_error ("expected function definition\n");
 			return NULL;
 		}
 	}
@@ -127,7 +127,7 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 			ret->data.assn.expr = tn_parser_if (tok);
 
 			if (!ret->data.assn.expr) {
-				error ("expected expression after assignment operator\n");
+				tn_error ("expected expression after assignment operator\n");
 				goto cleanup;
 			}
 
@@ -144,7 +144,7 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 		ret->data.expr = tn_parser_body (tok);
 
 		if (!ret->data.expr) {
-			error ("expected body after \"do\"\n");
+			tn_error ("expected body after \"do\"\n");
 			return NULL;
 		}
 	}
@@ -156,7 +156,7 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 			new = tn_parser_if (tok);
 
 			if (!new) {
-				error ("expected expression in list\n");
+				tn_error ("expected expression in list\n");
 				goto cleanup;
 			}
 
@@ -164,7 +164,7 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 			ret->data.expr = new;
 
 			if (!accept (TOK_COMM) && !peek (TOK_RBRK)) {
-				error ("unexpected end to list\n");
+				tn_error ("unexpected end to list\n");
 				goto cleanup;
 			}
 		}
@@ -186,7 +186,7 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 		ret->data.nil = NULL;
 	}
 	else {
-		error ("expected factor in expression\n");
+		tn_error ("expected factor in expression\n");
 		goto cleanup;
 	}
 
@@ -199,7 +199,7 @@ struct tn_expr *tn_parser_factor (struct tn_token **tok)
 
 		prev = *tok;
 		if (!accept (TOK_IDENT)) {
-			error ("expected identifier after accessor\n");
+			tn_error ("expected identifier after accessor\n");
 			goto cleanup;
 		}
 
@@ -232,7 +232,7 @@ struct tn_expr *tn_parser_call (struct tn_token **tok)
 			args = tn_parser_if (tok);
 
 			if (!args) {
-				error ("expected expression in argument list\n");
+				tn_error ("expected expression in argument list\n");
 				goto cleanup;
 			}
 
@@ -240,7 +240,7 @@ struct tn_expr *tn_parser_call (struct tn_token **tok)
 			new->data.call.args = args;
 
 			if (!accept (TOK_COMM) && !peek (TOK_RPAR)) {
-				error ("unexpected end to argument list\n");
+				tn_error ("unexpected end to argument list\n");
 				goto cleanup;
 			}
 		}
@@ -413,7 +413,7 @@ struct tn_expr *tn_parser_fn (struct tn_token **tok)
 	fn = &ret->data.fn;
 
 	if (!accept (TOK_LPAR)) {
-		error ("expected argument list\n");
+		tn_error ("expected argument list\n");
 		tn_parser_free (ret);
 		return NULL;
 	}
@@ -435,7 +435,7 @@ struct tn_expr *tn_parser_fn (struct tn_token **tok)
 			fn->varargs = 1;
 			prev = *tok;
 			if (!accept (TOK_IDENT) || !accept (TOK_RBRK)) {
-				error ("expected variadic argument\n");
+				tn_error ("expected variadic argument\n");
 				tn_parser_free (ret);
 				return NULL;
 			}
@@ -444,7 +444,7 @@ struct tn_expr *tn_parser_fn (struct tn_token **tok)
 		array_add (fn->args, prev->data.s);
 
 		if (!accept (TOK_COMM) && !peek (TOK_RPAR)) {
-			error ("expected argument list\n");
+			tn_error ("expected argument list\n");
 			tn_parser_free (ret);
 			return NULL;
 		}
@@ -453,7 +453,7 @@ struct tn_expr *tn_parser_fn (struct tn_token **tok)
 	}
 
 	if (!prev || prev->type != TOK_RPAR) {
-		error ("unexpected end to argument list\n");
+		tn_error ("unexpected end to argument list\n");
 		tn_parser_free (ret);
 		return NULL;
 	}
@@ -461,7 +461,7 @@ struct tn_expr *tn_parser_fn (struct tn_token **tok)
 	fn->expr = tn_parser_body (tok);
 
 	if (!fn->expr) {
-		error ("expected function body\n");
+		tn_error ("expected function body\n");
 		tn_parser_free (ret);
 		return NULL;
 	}
@@ -510,7 +510,7 @@ struct tn_expr *tn_parser_body (struct tn_token **tok)
 			if (accept (TOK_STRING))
 				new->data.s = prev->data.s;
 			else {
-				error ("expected identifier after import\n");
+				tn_error ("expected identifier after import\n");
 				tn_parser_free (ret);
 				return NULL;
 			}

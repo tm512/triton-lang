@@ -85,7 +85,7 @@ void tn_vm_push (struct tn_vm *vm, struct tn_value *val)
 		vm->stack = realloc (vm->stack, vm->ss * sizeof (struct tn_value*));
 
 		if (!vm->stack) {
-			error ("realloc failure, could not grow stack\n");
+			tn_error ("realloc failure, could not grow stack\n");
 			return;
 		}
 	}
@@ -112,7 +112,7 @@ void tn_vm_push (struct tn_vm *vm, struct tn_value *val)
 struct tn_value *tn_vm_pop (struct tn_vm *vm)
 {
 	if (vm->sp == 0) {
-		error ("pop called on empty stack\n");
+		tn_error ("pop called on empty stack\n");
 		return NULL;
 	}
 
@@ -146,7 +146,7 @@ void tn_vm_print (struct tn_value *val)
 	else if (v1d && v2i) \
 		tn_vm_push (vm, tn_double (vm, v1->data.d OP v2->data.i)); \
 	else { \
-		error ("non-number passed to numeric operation\n"); \
+		tn_error ("non-number passed to numeric operation\n"); \
 		vm->error = 1; \
 	} \
 } \
@@ -162,7 +162,7 @@ static struct tn_scope *tn_vm_scope_copy (struct tn_scope *sc)
 	ret = malloc (sizeof (*ret));
 
 	if (!ret) {
-		error ("malloc failed\n");
+		tn_error ("malloc failed\n");
 		return NULL;
 	}
 
@@ -179,11 +179,9 @@ static struct tn_scope *tn_vm_scope_copy (struct tn_scope *sc)
 static struct tn_closure *tn_vm_closure (struct tn_vm *vm)
 {
 	struct tn_closure *ret = malloc (sizeof (*ret));
-	struct tn_scope *it;
-	uint16_t i, nargs;
 
 	if (!ret) {
-		error ("malloc failed\n");
+		tn_error ("malloc failed\n");
 		vm->error = 1;
 		return NULL;
 	}
@@ -238,13 +236,13 @@ void tn_vm_free_scope (struct tn_scope *sc)
 void tn_vm_exec (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, struct tn_scope *sc, int nargs)
 {
 	int tailcall = 0;
-	struct tn_value *v1, *v2, *v3;
+	struct tn_value *v1, *v2;
 
 	// set up the current scope
 	if (!sc) {
 		sc = tn_vm_scope (0);
 		if (!sc) {
-			error ("couldn't allocate a new scope\n");
+			tn_error ("couldn't allocate a new scope\n");
 			vm->error = 1;
 			return;
 		}
@@ -271,7 +269,7 @@ void tn_vm_exec (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, str
 				if (v1->type == VAL_INT && v2->type == VAL_INT)
 					tn_vm_push (vm, tn_int (vm, v1->data.i % v2->data.i));
 				else {
-					error ("non-int passed to modulo\n");
+					tn_error ("non-int passed to modulo\n");
 					vm->error = 1;
 				}
 				break;
@@ -321,7 +319,7 @@ void tn_vm_exec (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, str
 				if (i < s->vars->arr_num)
 					tn_vm_push (vm, s->vars->arr[i]);
 				else {
-					error ("unbound variable %i\n", i + 1);
+					tn_error ("unbound variable %i\n", i + 1);
 					vm->error = 1;
 				}
 				break;
@@ -350,7 +348,7 @@ void tn_vm_exec (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, str
 				if (ref)
 					tn_vm_push (vm, tn_vref (vm, ref));
 				else {
-					error ("unbound variable %s\n", name);
+					tn_error ("unbound variable %s\n", name);
 					vm->error = 1;
 				}
 				break;
@@ -421,14 +419,14 @@ void tn_vm_exec (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, str
 					else if (item[0] == 't' && item[1] == '\0')
 						tn_vm_push (vm, v1->data.pair.b);
 					else {
-						error ("invalid access to list\n");
+						tn_error ("invalid access to list\n");
 						vm->error = 1;
 					}
 				}
 				else if (v1->type == VAL_SCOPE) { // module access
 					itemn = (uint32_t)tn_hash_search (v1->data.sc->ch->vars->hash, item);
 					if (itemn == 0) {
-						error ("unbound variable %s in module\n", item);
+						tn_error ("unbound variable %s in module\n", item);
 						vm->error = 1;
 					}
 
@@ -440,7 +438,7 @@ void tn_vm_exec (struct tn_vm *vm, struct tn_chunk *ch, struct tn_value *cl, str
 					if (val)
 						tn_vm_push (vm, val);
 					else {
-						error ("unbound variable %s in C module\n", item);
+						tn_error ("unbound variable %s in C module\n", item);
 						vm->error = 1;
 					}
 				}
@@ -494,7 +492,7 @@ out:
 void tn_vm_setglobal (struct tn_vm *vm, const char *name, struct tn_value *val)
 {
 	if (tn_hash_insert (vm->globals, name, val)) {
-		error ("failed to set global\n");
+		tn_error ("failed to set global\n");
 		vm->error = 1;
 	}
 }

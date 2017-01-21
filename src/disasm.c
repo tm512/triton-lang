@@ -130,7 +130,7 @@ void tn_disasm (struct tn_chunk *ch)
 	int i;
 	struct tn_disasm_opinfo *op;
 
-	printf ("chunk %x (%s):\n", ch, ch->name);
+	printf ("chunk %lx (%s):\n", (uintptr_t)ch, ch->name);
 
 	ch->pc = 0;
 

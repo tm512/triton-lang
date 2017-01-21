@@ -52,7 +52,7 @@ struct tn_value *tn_value_cat (struct tn_vm *vm, struct tn_value *a, struct tn_v
 	if (a->type == VAL_STR && b->type == VAL_STR) {
 		buf = malloc (strlen (a->data.s) + strlen (b->data.s) + 1);
 		if (!buf) {
-			error ("malloc failed\n");
+			tn_error ("malloc failed\n");
 			vm->error = 1;
 			return NULL;
 		}
@@ -61,7 +61,7 @@ struct tn_value *tn_value_cat (struct tn_vm *vm, struct tn_value *a, struct tn_v
 		return tn_string (vm, buf);
 	}
 	else {
-		error ("non-string passed to concatenate operator\n");
+		tn_error ("non-string passed to concatenate operator\n");
 		vm->error = 1;
 		return NULL;
 	}

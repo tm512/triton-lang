@@ -15,14 +15,14 @@ static void tn_list_map (struct tn_vm *vm, int argn)
 	struct tn_scope *sc;
 
 	if (fn->type != VAL_CLSR && fn->type != VAL_CFUN) {
-		error ("non-function function argument passed to list:map\n");
+		tn_error ("non-function function argument passed to list:map\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
 
 	for (i = 0; i < argn - 1; i++) {
 		if (lists[i]->type != VAL_PAIR) {
-			error ("non-list passed to list:map\n");
+			tn_error ("non-list passed to list:map\n");
 			tn_vm_push (vm, &nil);
 			return;
 		}
@@ -74,7 +74,7 @@ static void tn_list_foldl (struct tn_vm *vm, int argn)
 
 	if (argn != 3 || tn_value_get_args (vm, "aaa", &fn, &lst, &init)
 	    || (fn->type != VAL_CLSR && fn->type != VAL_CFUN) || (lst != &nil && lst->type != VAL_PAIR)) {
-		error ("invalid arguments passed to list:foldl\n");
+		tn_error ("invalid arguments passed to list:foldl\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -105,7 +105,7 @@ static void tn_list_foldr (struct tn_vm *vm, int argn)
 
 	if (argn != 3 || tn_value_get_args (vm, "aaa", &fn, &lst, &init)
 	    || (fn->type != VAL_CLSR && fn->type != VAL_CFUN) || (lst != &nil && lst->type != VAL_PAIR)) {
-		error ("invalid arguments passed to list:foldr\n");
+		tn_error ("invalid arguments passed to list:foldr\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -140,7 +140,7 @@ static void tn_list_filter (struct tn_vm *vm, int argn)
 
 	if (argn != 2 || tn_value_get_args (vm, "aa", &fn, &lst)
 	    || (fn->type != VAL_CLSR && fn->type != VAL_CFUN) || (lst != &nil && lst->type != VAL_PAIR)) {
-		error ("invalid arguments passed to list:filter\n");
+		tn_error ("invalid arguments passed to list:filter\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -176,7 +176,7 @@ static void tn_list_length (struct tn_vm *vm, int argn)
 	struct tn_value *lst;
 
 	if (argn != 1 || tn_value_get_args (vm, "l", &lst)) {
-		error ("invalid argument passed to list:length\n");
+		tn_error ("invalid argument passed to list:length\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -195,7 +195,7 @@ static void tn_list_ref (struct tn_vm *vm, int argn)
 	struct tn_value *lst;
 
 	if (argn != 2 || tn_value_get_args (vm, "li", &lst, &n)) {
-		error ("invalid argument passed to list:ref\n");
+		tn_error ("invalid argument passed to list:ref\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -213,7 +213,7 @@ static void tn_list_join (struct tn_vm *vm, int argn)
 	struct tn_value *a, *b;
 
 	if (argn != 2 || tn_value_get_args (vm, "ll", &a, &b)) {
-		error ("non-list passed to list:join\n");
+		tn_error ("non-list passed to list:join\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -229,7 +229,7 @@ static void tn_list_reverse (struct tn_vm *vm, int argn)
 	struct tn_value *lst, *tail = &nil;
 
 	if (argn != 1 || tn_value_get_args (vm, "l", &lst)) {
-		error ("non-list passed to list:reverse\n");
+		tn_error ("non-list passed to list:reverse\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}

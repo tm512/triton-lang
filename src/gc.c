@@ -191,14 +191,13 @@ void tn_gc_release_list (struct tn_value *lst)
 
 struct tn_value *tn_gc_alloc (struct tn_gc *gc)
 {
-	int i;
 	struct tn_value *ret;
 
 	if (!gc)
 		return NULL;
 
 	if (!gc->free && (!gc->on || !tn_gc_collect (gc)) && !tn_gc_resize (gc)) {
-		error ("out of memory\n");
+		tn_error ("out of memory\n");
 		return NULL;
 	}
 

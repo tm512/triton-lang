@@ -14,14 +14,12 @@ int main (int argc, char **argv)
 {
 	int repl = 0;
 	char line[4096];
-	struct tn_token *tok = NULL, *bak;
-	struct tn_expr *ast = NULL;
 	struct tn_chunk *code = NULL;
 	struct tn_scope *sc = tn_vm_scope (1); // acts as a global scope for the REPL
 	struct tn_vm *vm = tn_vm_init (1024);
 
 	if (!sc) {
-		error ("failed to allocate scope\n");
+		tn_error ("failed to allocate scope\n");
 		return 1;
 	}
 
@@ -45,7 +43,6 @@ int main (int argc, char **argv)
 			if (vm->error) {
 				vm->error = 0;
 				vm->sp = 0;
-				tok = NULL;
 				code = NULL; // TODO: free this
 				continue;
 			}

@@ -1,9 +1,0 @@
-fn loop (n)
-  fn iter (i)
-    print i
-    i < n ?
-      iter (i + 1)
-      0 ;
-  iter (0) ;
-
-loop (2000000)

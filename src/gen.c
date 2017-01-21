@@ -4,6 +4,7 @@
 #include <string.h>
 #include <libgen.h>
 
+#include "error.h"
 #include "hash.h"
 #include "lexer.h"
 #include "parser.h"
@@ -35,7 +36,7 @@ static void tn_gen_emit8 (struct tn_chunk *ch, uint8_t n)
 
 		ch->code = realloc (ch->code, ch->codelen *= 2);
 		if (!ch->code) {
-			error ("realloc failed\n");
+			tn_error ("realloc failed\n");
 			ch->code = code; // pretend like nothing happened I guess
 			return;
 		}
@@ -363,7 +364,7 @@ struct tn_chunk *tn_gen_compile (struct tn_expr *ex, struct tn_expr_data_fn *fn,
 	return ret;
 
 error:
-	error ("malloc failed\n");
+	tn_error ("malloc failed\n");
 	free (ret);
 	return NULL;
 }

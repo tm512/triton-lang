@@ -1,9 +1,0 @@
-fn square (n)
-  n * n ;
-
-fn adder (n)
-  fn (a)
-    a + n ;;
-
-add10 = adder (10)
-square (add10 (2))

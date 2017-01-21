@@ -19,7 +19,7 @@ void tn_string_format (struct tn_vm *vm, int argn)
 	char *buf = malloc (bufsize), *tail, *copy, *bak;
 
 	if (!buf) {
-		error ("malloc failed\n");
+		tn_error ("malloc failed\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -30,7 +30,7 @@ void tn_string_format (struct tn_vm *vm, int argn)
 	memset (buf, 0, bufsize);
 
 	if (argn == 0 || tn_value_get_args (vm, "s", &fmt)) {
-		error ("invalid arguments passed to string:format\n");
+		tn_error ("invalid arguments passed to string:format\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
@@ -64,7 +64,7 @@ static void tn_string_length (struct tn_vm *vm, int argn)
 	char *str;
 
 	if (argn != 1 || tn_value_get_args (vm, "s", &str)) {
-		error ("invalid arguments passed to string:length\n");
+		tn_error ("invalid arguments passed to string:length\n");
 		tn_vm_push (vm, &nil);
 		return;
 	}
